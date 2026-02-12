@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npx next build:*)",
+      "Bash(test:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
