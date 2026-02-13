@@ -9,87 +9,68 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+function post<T>(url: string, data: unknown): Promise<T> {
+  return fetchJson<T>(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+function put<T>(url: string, data: unknown): Promise<T> {
+  return fetchJson<T>(url, {
+    method: "PUT", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
 export function api() {
   return {
-    // Team
     getTeam: () => fetchJson<import("@/types").TeamMember[]>("/api/team"),
 
     // Startups
-    getStartups: () =>
-      fetchJson<import("@/types").Startup[]>("/api/startups"),
-    createStartup: (data: Partial<import("@/types").Startup>) =>
-      fetchJson<import("@/types").Startup>("/api/startups", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    updateStartup: (data: Partial<import("@/types").Startup>) =>
-      fetchJson<import("@/types").Startup>("/api/startups", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
+    getStartups: () => fetchJson<import("@/types").Startup[]>("/api/startups"),
+    createStartup: (d: Partial<import("@/types").Startup>) => post<import("@/types").Startup>("/api/startups", d),
+    updateStartup: (d: Partial<import("@/types").Startup>) => put<import("@/types").Startup>("/api/startups", d),
+
+    // Projects
+    getProjects: (startupId?: string) => {
+      const url = startupId ? `/api/projects?startup_id=${startupId}` : "/api/projects";
+      return fetchJson<import("@/types").Project[]>(url);
+    },
+    createProject: (d: Partial<import("@/types").Project>) => post<import("@/types").Project>("/api/projects", d),
+    updateProject: (d: Partial<import("@/types").Project>) => put<import("@/types").Project>("/api/projects", d),
 
     // Tasks
     getTasks: () => fetchJson<import("@/types").Task[]>("/api/tasks"),
-    createTask: (data: Partial<import("@/types").Task>) =>
-      fetchJson<import("@/types").Task>("/api/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    updateTask: (data: Partial<import("@/types").Task>) =>
-      fetchJson<import("@/types").Task>("/api/tasks", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
+    createTask: (d: Partial<import("@/types").Task>) => post<import("@/types").Task>("/api/tasks", d),
+    updateTask: (d: Partial<import("@/types").Task>) => put<import("@/types").Task>("/api/tasks", d),
 
     // Investors
-    getInvestors: () =>
-      fetchJson<import("@/types").Investor[]>("/api/investors"),
-    createInvestor: (data: Partial<import("@/types").Investor>) =>
-      fetchJson<import("@/types").Investor>("/api/investors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    updateInvestor: (data: Partial<import("@/types").Investor>) =>
-      fetchJson<import("@/types").Investor>("/api/investors", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
+    getInvestors: () => fetchJson<import("@/types").Investor[]>("/api/investors"),
+    createInvestor: (d: Partial<import("@/types").Investor>) => post<import("@/types").Investor>("/api/investors", d),
+    updateInvestor: (d: Partial<import("@/types").Investor>) => put<import("@/types").Investor>("/api/investors", d),
 
-    // Startup-Investors
+    // Project-Investors (replaces startup-investors)
+    getProjectInvestors: (projectId?: string) => {
+      const url = projectId ? `/api/project-investors?project_id=${projectId}` : "/api/project-investors";
+      return fetchJson<import("@/types").ProjectInvestor[]>(url);
+    },
+    createProjectInvestor: (d: Partial<import("@/types").ProjectInvestor>) =>
+      post<import("@/types").ProjectInvestor>("/api/project-investors", d),
+    updateProjectInvestor: (d: Partial<import("@/types").ProjectInvestor>) =>
+      put<import("@/types").ProjectInvestor>("/api/project-investors", d),
+
+    // Startup-Investors (legacy)
     getStartupInvestors: (startupId?: string) => {
-      const url = startupId
-        ? `/api/startup-investors?startup_id=${startupId}`
-        : "/api/startup-investors";
+      const url = startupId ? `/api/startup-investors?startup_id=${startupId}` : "/api/startup-investors";
       return fetchJson<import("@/types").StartupInvestor[]>(url);
     },
-    createStartupInvestor: (
-      data: Partial<import("@/types").StartupInvestor>
-    ) =>
-      fetchJson<import("@/types").StartupInvestor>("/api/startup-investors", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
-    updateStartupInvestor: (
-      data: Partial<import("@/types").StartupInvestor>
-    ) =>
-      fetchJson<import("@/types").StartupInvestor>("/api/startup-investors", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      }),
+    createStartupInvestor: (d: Partial<import("@/types").StartupInvestor>) =>
+      post<import("@/types").StartupInvestor>("/api/startup-investors", d),
+    updateStartupInvestor: (d: Partial<import("@/types").StartupInvestor>) =>
+      put<import("@/types").StartupInvestor>("/api/startup-investors", d),
 
     // Config
-    getConfig: () =>
-      fetchJson<{
-        config: import("@/types").ConfigRow[];
-        pipeline_stages: string[];
-      }>("/api/config"),
+    getConfig: () => fetchJson<{ config: import("@/types").ConfigRow[]; pipeline_stages: string[] }>("/api/config"),
   };
 }

@@ -18,12 +18,22 @@ export interface Startup {
   notes: string;
 }
 
+export interface Project {
+  project_id: string;
+  startup_id: string;
+  project_name: string;
+  status: "active" | "paused" | "closed";
+  created_at: string;
+  notes: string;
+}
+
 export type TaskStatus = "todo" | "doing" | "done";
 export type TaskPriority = "low" | "medium" | "high";
 
 export interface Task {
   task_id: string;
   startup_id: string;
+  project_id: string; // blank = startup-level task
   title: string;
   owner_id: string;
   due_date: string; // YYYY-MM-DD
@@ -43,12 +53,24 @@ export interface Investor {
   notes: string;
 }
 
+// NEW — pipeline is per-project now
+export interface ProjectInvestor {
+  link_id: string;
+  project_id: string;
+  investor_id: string;
+  stage: string;
+  last_update: string; // YYYY-MM-DD
+  next_action: string;
+  notes: string;
+}
+
+// Keep for backward compat / migration
 export interface StartupInvestor {
   link_id: string;
   startup_id: string;
   investor_id: string;
   stage: string;
-  last_update: string; // YYYY-MM-DD
+  last_update: string;
   next_action: string;
   notes: string;
 }
@@ -62,20 +84,13 @@ export interface ConfigRow {
 // Derived / UI types
 // ============================================
 
-export interface StartupWithCounts extends Startup {
+export interface ProjectWithCounts extends Project {
+  startup_name: string;
   openTaskCount: number;
   investorCount: number;
 }
 
-export interface InvestorWithStartups extends Investor {
-  startups: {
-    startup_id: string;
-    startup_name: string;
-    stage: string;
-  }[];
-}
-
-export interface PipelineInvestorCard extends StartupInvestor {
-  investor_name: string;
-  tags: string;
+export interface StartupWithCounts extends Startup {
+  openTaskCount: number;
+  projectCount: number;
 }

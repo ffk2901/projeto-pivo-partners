@@ -3,13 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { Startup, Task, StartupInvestor } from "@/types";
+import type { Startup, Task, Project } from "@/types";
 import Modal from "@/components/Modal";
 
 export default function StartupsPage() {
   const [startups, setStartups] = useState<Startup[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [links, setLinks] = useState<StartupInvestor[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
   const [newName, setNewName] = useState("");
@@ -17,14 +17,14 @@ export default function StartupsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [s, t, si] = await Promise.all([
+      const [s, t, p] = await Promise.all([
         api().getStartups(),
         api().getTasks(),
-        api().getStartupInvestors(),
+        api().getProjects(),
       ]);
       setStartups(s);
       setTasks(t);
-      setLinks(si);
+      setProjects(p);
     } catch (err) {
       console.error("Failed to load:", err);
     } finally {
@@ -47,8 +47,8 @@ export default function StartupsPage() {
   const getOpenTaskCount = (id: string) =>
     tasks.filter((t) => t.startup_id === id && t.status !== "done").length;
 
-  const getInvestorCount = (id: string) =>
-    links.filter((l) => l.startup_id === id).length;
+  const getProjectCount = (id: string) =>
+    projects.filter((p) => p.startup_id === id).length;
 
   const getMaterialsCount = (s: Startup) =>
     [s.pitch_deck_url, s.data_room_url, s.pl_url, s.investment_memo_url].filter(
@@ -114,7 +114,7 @@ export default function StartupsPage() {
             </div>
             <div className="flex items-center gap-4 text-xs text-gray-400">
               <span>{getOpenTaskCount(s.startup_id)} open tasks</span>
-              <span>{getInvestorCount(s.startup_id)} investors</span>
+              <span>{getProjectCount(s.startup_id)} projects</span>
               <span>{getMaterialsCount(s)}/4 materials</span>
             </div>
           </Link>

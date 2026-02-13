@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
-import type { Investor, StartupInvestor, Startup } from "@/types";
+import type { Investor, ProjectInvestor, Project, Startup } from "@/types";
 import Modal from "@/components/Modal";
 
 export default function InvestorsPage() {
   const [investors, setInvestors] = useState<Investor[]>([]);
-  const [links, setLinks] = useState<StartupInvestor[]>([]);
+  const [piLinks, setPiLinks] = useState<ProjectInvestor[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [startups, setStartups] = useState<Startup[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -22,13 +24,15 @@ export default function InvestorsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [inv, si, st] = await Promise.all([
+      const [inv, pi, prj, st] = await Promise.all([
         api().getInvestors(),
-        api().getStartupInvestors(),
+        api().getProjectInvestors(),
+        api().getProjects(),
         api().getStartups(),
       ]);
       setInvestors(inv);
-      setLinks(si);
+      setPiLinks(pi);
+      setProjects(prj);
       setStartups(st);
     } catch (err) {
       console.error("Failed to load:", err);
@@ -57,19 +61,26 @@ export default function InvestorsPage() {
     loadData();
   };
 
-  const getStartupCount = (id: string) =>
-    links.filter((l) => l.investor_id === id).length;
+  const getProjectCount = (id: string) =>
+    piLinks.filter((l) => l.investor_id === id).length;
 
-  const getInvestorStartups = (id: string) => {
-    return links
+  const getInvestorProjects = (id: string) => {
+    return piLinks
       .filter((l) => l.investor_id === id)
-      .map((l) => ({
-        startup: startups.find((s) => s.startup_id === l.startup_id),
-        stage: l.stage,
-        last_update: l.last_update,
-        notes: l.notes,
-      }))
-      .filter((x) => x.startup);
+      .map((l) => {
+        const project = projects.find((p) => p.project_id === l.project_id);
+        const startup = project
+          ? startups.find((s) => s.startup_id === project.startup_id)
+          : null;
+        return {
+          project,
+          startup,
+          stage: l.stage,
+          last_update: l.last_update,
+          notes: l.notes,
+        };
+      })
+      .filter((x) => x.project);
   };
 
   const filtered = investors.filter((i) => {
@@ -91,7 +102,9 @@ export default function InvestorsPage() {
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Investors Directory</h1>
+        <h1 className="text-2xl font-bold text-gray-800">
+          Investors Directory
+        </h1>
         <button
           onClick={() => setShowAdd(true)}
           className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -122,7 +135,7 @@ export default function InvestorsPage() {
                 Contact
               </th>
               <th className="text-center px-4 py-3 font-medium text-gray-600">
-                Startups
+                Projects
               </th>
             </tr>
           </thead>
@@ -139,14 +152,17 @@ export default function InvestorsPage() {
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-1">
                     {inv.tags &&
-                      inv.tags.split(";").map((tag) => (
-                        <span
-                          key={tag}
-                          className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
-                        >
-                          {tag.trim()}
-                        </span>
-                      ))}
+                      inv.tags
+                        .split(";")
+                        .filter(Boolean)
+                        .map((tag) => (
+                          <span
+                            key={tag}
+                            className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded"
+                          >
+                            {tag.trim()}
+                          </span>
+                        ))}
                   </div>
                 </td>
                 <td className="px-4 py-3 text-gray-500 text-xs">
@@ -165,7 +181,7 @@ export default function InvestorsPage() {
                 </td>
                 <td className="px-4 py-3 text-center">
                   <span className="text-xs font-medium text-gray-600">
-                    {getStartupCount(inv.investor_id)}
+                    {getProjectCount(inv.investor_id)}
                   </span>
                 </td>
               </tr>
@@ -295,14 +311,17 @@ export default function InvestorsPage() {
                   Tags
                 </p>
                 <div className="flex flex-wrap gap-1">
-                  {showDetail.tags.split(";").map((tag) => (
-                    <span
-                      key={tag}
-                      className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded"
-                    >
-                      {tag.trim()}
-                    </span>
-                  ))}
+                  {showDetail.tags
+                    .split(";")
+                    .filter(Boolean)
+                    .map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded"
+                      >
+                        {tag.trim()}
+                      </span>
+                    ))}
                 </div>
               </div>
             )}
@@ -320,24 +339,40 @@ export default function InvestorsPage() {
 
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">
-                Startup Relationships
+                Project Relationships
               </p>
-              {getInvestorStartups(showDetail.investor_id).length === 0 ? (
+              {getInvestorProjects(showDetail.investor_id).length === 0 ? (
                 <p className="text-sm text-gray-300 italic">
-                  Not linked to any startups.
+                  Not linked to any projects.
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {getInvestorStartups(showDetail.investor_id).map(
-                    ({ startup, stage, last_update, notes: linkNotes }) => (
+                  {getInvestorProjects(showDetail.investor_id).map(
+                    ({
+                      project,
+                      startup,
+                      stage,
+                      last_update,
+                      notes: linkNotes,
+                    }) => (
                       <div
-                        key={startup!.startup_id}
+                        key={project!.project_id}
                         className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-gray-800">
-                            {startup!.startup_name}
-                          </span>
+                          <div>
+                            <Link
+                              href={`/projects/${project!.project_id}`}
+                              className="text-sm font-medium text-gray-800 hover:text-blue-600"
+                            >
+                              {project!.project_name}
+                            </Link>
+                            {startup && (
+                              <p className="text-xs text-gray-400">
+                                {startup.startup_name}
+                              </p>
+                            )}
+                          </div>
                           <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
                             {stage}
                           </span>

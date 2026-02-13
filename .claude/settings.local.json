@@ -5,7 +5,13 @@
       "Bash(npm install:*)",
       "Bash(npx next build:*)",
       "Bash(test:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(grep:*)",
+      "Bash(npx tsc:*)",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "Bash(del \"\\\\?\\\\C:\\\\Users\\\\Rkali\\\\OneDrive\\\\Summer-Felipe\\\\projeto-pivo-partners\\\\nul\")",
+      "Bash(cmd /c \"del /f /q \"\"\\\\?\\\\C:\\\\Users\\\\Rkali\\\\OneDrive\\\\Summer-Felipe\\\\projeto-pivo-partners\\\\nul\"\"\")"
     ]
   }
 }
