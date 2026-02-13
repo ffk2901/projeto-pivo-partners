@@ -183,9 +183,11 @@ export async function getStartups(): Promise<Startup[]> {
 
 export async function getProjects(): Promise<Project[]> {
   const k = "projects"; const c = getCached<Project[]>(k); if (c) return c;
-  const rows = await readRange(`${TAB.PROJECTS}!A2:F`);
-  const data = rows.map(toProject).filter((p) => p.project_id);
-  setCache(k, data); return data;
+  try {
+    const rows = await readRange(`${TAB.PROJECTS}!A2:F`);
+    const data = rows.map(toProject).filter((p) => p.project_id);
+    setCache(k, data); return data;
+  } catch { return []; }
 }
 
 export async function getTasks(): Promise<Task[]> {
@@ -197,16 +199,20 @@ export async function getTasks(): Promise<Task[]> {
 
 export async function getInvestors(): Promise<Investor[]> {
   const k = "investors"; const c = getCached<Investor[]>(k); if (c) return c;
-  const rows = await readRange(`${TAB.INVESTORS}!A2:F`);
-  const data = rows.map(toInvestor).filter((i) => i.investor_id);
-  setCache(k, data); return data;
+  try {
+    const rows = await readRange(`${TAB.INVESTORS}!A2:F`);
+    const data = rows.map(toInvestor).filter((i) => i.investor_id);
+    setCache(k, data); return data;
+  } catch { return []; }
 }
 
 export async function getProjectInvestors(): Promise<ProjectInvestor[]> {
   const k = "project_investors"; const c = getCached<ProjectInvestor[]>(k); if (c) return c;
-  const rows = await readRange(`${TAB.PROJECT_INVESTORS}!A2:G`);
-  const data = rows.map(toProjectInvestor).filter((pi) => pi.link_id);
-  setCache(k, data); return data;
+  try {
+    const rows = await readRange(`${TAB.PROJECT_INVESTORS}!A2:G`);
+    const data = rows.map(toProjectInvestor).filter((pi) => pi.link_id);
+    setCache(k, data); return data;
+  } catch { return []; }
 }
 
 export async function getStartupInvestors(): Promise<StartupInvestor[]> {
