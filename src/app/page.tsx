@@ -39,8 +39,8 @@ function filterTasks(tasks: Task[], filter: Filter): Task[] {
 
 const PRIORITY_COLORS = {
   high: "bg-red-100 text-red-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  low: "bg-gray-100 text-gray-500",
+  medium: "bg-amber-100 text-amber-700",
+  low: "bg-ink-100 text-ink-500",
 };
 
 export default function HomePage() {
@@ -142,7 +142,13 @@ export default function HomePage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p className="text-gray-400">Loading...</p>
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-brand-200/40 rounded-lg w-48"></div>
+          <div className="grid grid-cols-2 gap-4 max-w-md">
+            <div className="h-20 bg-brand-200/40 rounded-2xl"></div>
+            <div className="h-20 bg-brand-200/40 rounded-2xl"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -151,43 +157,35 @@ export default function HomePage() {
     <div className="p-8">
       {/* Error banner */}
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start justify-between">
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start justify-between">
           <div>
             <p className="text-sm font-medium text-red-800">Error</p>
             <p className="text-sm text-red-600 mt-0.5">{error}</p>
           </div>
-          <button
-            onClick={() => setError(null)}
-            className="text-red-400 hover:text-red-600 ml-4"
-          >
-            &times;
-          </button>
+          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 ml-4">&times;</button>
         </div>
       )}
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <h1 className="text-2xl font-bold text-ink-800">Dashboard</h1>
+          <p className="text-sm text-ink-400 mt-0.5">
             {new Date().toLocaleDateString("en-US", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
+              weekday: "long", year: "numeric", month: "long", day: "numeric",
             })}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setShowAddTask(true)}
-            className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm"
           >
             + Add Task
           </button>
           <button
             onClick={() => setShowAddStartup(true)}
-            className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+            className="px-4 py-2 text-sm bg-surface-0 text-ink-700 border border-brand-200/60 rounded-xl hover:bg-brand-50 transition-colors font-medium"
           >
             + Add Startup
           </button>
@@ -196,21 +194,15 @@ export default function HomePage() {
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
-        <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-          <p className="text-2xl font-bold text-gray-800">
-            {activeStartups.length}
-          </p>
-          <p className="text-xs text-gray-400">Active Startups</p>
+        <div className="bg-surface-0 border border-brand-200/60 rounded-2xl px-5 py-4">
+          <p className="text-2xl font-bold text-ink-800">{activeStartups.length}</p>
+          <p className="text-xs text-ink-400 mt-0.5">Active Startups</p>
         </div>
-        <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
-          <p
-            className={`text-2xl font-bold ${
-              overdueTasks.length > 0 ? "text-red-600" : "text-gray-800"
-            }`}
-          >
+        <div className="bg-surface-0 border border-brand-200/60 rounded-2xl px-5 py-4">
+          <p className={`text-2xl font-bold ${overdueTasks.length > 0 ? "text-red-600" : "text-ink-800"}`}>
             {overdueTasks.length}
           </p>
-          <p className="text-xs text-gray-400">Overdue Tasks</p>
+          <p className="text-xs text-ink-400 mt-0.5">Overdue Tasks</p>
         </div>
       </div>
 
@@ -220,10 +212,10 @@ export default function HomePage() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 text-sm rounded-md capitalize ${
+            className={`px-3.5 py-1.5 text-sm rounded-xl capitalize font-medium transition-colors ${
               filter === f
-                ? "bg-blue-100 text-blue-700 font-medium"
-                : "text-gray-500 hover:bg-gray-100"
+                ? "bg-brand-500 text-white shadow-sm"
+                : "text-ink-500 bg-surface-0 border border-brand-200/60 hover:bg-brand-50"
             }`}
           >
             {f === "week" ? "This Week" : f}
@@ -236,61 +228,40 @@ export default function HomePage() {
         {groupedByOwner.map(({ member, tasks: memberTasks }) => (
           <div key={member.team_id}>
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
+              <div className="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-bold">
                 {member.name.charAt(0).toUpperCase()}
               </div>
-              <h3 className="text-sm font-semibold text-gray-700">
-                {member.name}
-              </h3>
-              <span className="text-xs text-gray-400">
-                ({memberTasks.length})
-              </span>
+              <h3 className="text-sm font-semibold text-ink-700">{member.name}</h3>
+              <span className="text-xs text-ink-400">({memberTasks.length})</span>
             </div>
             <div className="space-y-2">
               {memberTasks.length === 0 && (
-                <p className="text-xs text-gray-300 py-2">No tasks</p>
+                <p className="text-xs text-ink-300 py-2 italic">No tasks</p>
               )}
               {memberTasks.map((task) => (
-                <div
-                  key={task.task_id}
-                  className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 hover:border-gray-300 transition-colors"
-                >
+                <div key={task.task_id} className="bg-surface-0 border border-brand-200/60 rounded-xl px-3 py-2.5 hover:border-brand-400 transition-colors">
                   <div className="flex items-start gap-2">
                     <button
                       onClick={() => handleToggleDone(task)}
-                      className="mt-0.5 w-4 h-4 rounded border border-gray-300 flex-shrink-0 hover:border-blue-500 flex items-center justify-center"
+                      className="mt-0.5 w-4 h-4 rounded border border-brand-300 flex-shrink-0 hover:border-brand-500 flex items-center justify-center transition-colors"
                     >
                       {task.status === "done" && (
-                        <span className="text-blue-600 text-xs">&#10003;</span>
+                        <span className="text-brand-600 text-xs">&#10003;</span>
                       )}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800 leading-snug">
-                        {task.title}
-                      </p>
+                      <p className="text-sm text-ink-800 leading-snug">{task.title}</p>
                       <div className="flex items-center gap-2 mt-1">
                         {task.due_date && (
-                          <span
-                            className={`text-xs ${
-                              task.due_date < today
-                                ? "text-red-500 font-medium"
-                                : "text-gray-400"
-                            }`}
-                          >
+                          <span className={`text-xs ${task.due_date < today ? "text-red-500 font-medium" : "text-ink-400"}`}>
                             {task.due_date}
                           </span>
                         )}
                         {task.startup_id && (
-                          <span className="text-xs text-gray-400">
-                            {getStartupName(task.startup_id)}
-                          </span>
+                          <span className="text-xs text-ink-400">{getStartupName(task.startup_id)}</span>
                         )}
                         {task.priority && task.priority !== "medium" && (
-                          <span
-                            className={`text-xs px-1.5 py-0.5 rounded ${
-                              PRIORITY_COLORS[task.priority]
-                            }`}
-                          >
+                          <span className={`text-xs px-1.5 py-0.5 rounded-md ${PRIORITY_COLORS[task.priority]}`}>
                             {task.priority}
                           </span>
                         )}
@@ -307,24 +278,13 @@ export default function HomePage() {
       {/* Unassigned */}
       {unassigned.length > 0 && (
         <div className="mt-6">
-          <h3 className="text-sm font-semibold text-gray-500 mb-3">
-            Unassigned ({unassigned.length})
-          </h3>
+          <h3 className="text-sm font-semibold text-ink-500 mb-3">Unassigned ({unassigned.length})</h3>
           <div className="space-y-2 max-w-md">
             {unassigned.map((task) => (
-              <div
-                key={task.task_id}
-                className="bg-white border border-gray-200 rounded-lg px-3 py-2.5"
-              >
-                <p className="text-sm text-gray-800">{task.title}</p>
+              <div key={task.task_id} className="bg-surface-0 border border-brand-200/60 rounded-xl px-3 py-2.5">
+                <p className="text-sm text-ink-800">{task.title}</p>
                 {task.due_date && (
-                  <span
-                    className={`text-xs ${
-                      task.due_date < today
-                        ? "text-red-500 font-medium"
-                        : "text-gray-400"
-                    }`}
-                  >
+                  <span className={`text-xs ${task.due_date < today ? "text-red-500 font-medium" : "text-ink-400"}`}>
                     {task.due_date}
                   </span>
                 )}
@@ -335,54 +295,27 @@ export default function HomePage() {
       )}
 
       {/* Add Task Modal */}
-      <Modal
-        open={showAddTask}
-        onClose={() => setShowAddTask(false)}
-        title="Add Task"
-      >
-        <TaskForm
-          team={team}
-          startups={startups}
-          onSubmit={handleCreateTask}
-          onCancel={() => setShowAddTask(false)}
-        />
+      <Modal open={showAddTask} onClose={() => setShowAddTask(false)} title="Add Task">
+        <TaskForm team={team} startups={startups} onSubmit={handleCreateTask} onCancel={() => setShowAddTask(false)} />
       </Modal>
 
       {/* Add Startup Modal */}
-      <Modal
-        open={showAddStartup}
-        onClose={() => setShowAddStartup(false)}
-        title="Add Startup"
-      >
+      <Modal open={showAddStartup} onClose={() => setShowAddStartup(false)} title="Add Startup">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Startup Name *
-            </label>
+            <label className="block text-sm font-medium text-ink-700 mb-1">Startup Name *</label>
             <input
               type="text"
               value={newStartupName}
               onChange={(e) => setNewStartupName(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-brand-200 rounded-xl px-3 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               placeholder="e.g. Acme Corp"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleCreateStartup();
-              }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleCreateStartup(); }}
             />
           </div>
           <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setShowAddStartup(false)}
-              className="px-4 py-2 text-sm text-gray-600"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleCreateStartup}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Create
-            </button>
+            <button onClick={() => setShowAddStartup(false)} className="px-4 py-2 text-sm text-ink-500 hover:text-ink-700 transition-colors">Cancel</button>
+            <button onClick={handleCreateStartup} className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium">Create</button>
           </div>
         </div>
       </Modal>

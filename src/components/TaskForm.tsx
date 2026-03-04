@@ -11,13 +11,7 @@ interface TaskFormProps {
   onCancel: () => void;
 }
 
-export default function TaskForm({
-  team,
-  startups,
-  initial,
-  onSubmit,
-  onCancel,
-}: TaskFormProps) {
+export default function TaskForm({ team, startups, initial, onSubmit, onCancel }: TaskFormProps) {
   const [title, setTitle] = useState(initial?.title || "");
   const [startupId, setStartupId] = useState(initial?.startup_id || "");
   const [ownerId, setOwnerId] = useState(initial?.owner_id || "");
@@ -46,53 +40,31 @@ export default function TaskForm({
     }
   };
 
+  const inputClass = "w-full border border-brand-200 rounded-xl px-3 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40";
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Title *
-        </label>
-        <input
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <label className="block text-sm font-medium text-ink-700 mb-1">Title *</label>
+        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required className={inputClass} />
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Startup
-          </label>
-          <select
-            value={startupId}
-            onChange={(e) => setStartupId(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          <label className="block text-sm font-medium text-ink-700 mb-1">Startup</label>
+          <select value={startupId} onChange={(e) => setStartupId(e.target.value)} className={inputClass}>
             <option value="">-- None --</option>
             {startups.map((s) => (
-              <option key={s.startup_id} value={s.startup_id}>
-                {s.startup_name}
-              </option>
+              <option key={s.startup_id} value={s.startup_id}>{s.startup_name}</option>
             ))}
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Owner
-          </label>
-          <select
-            value={ownerId}
-            onChange={(e) => setOwnerId(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          <label className="block text-sm font-medium text-ink-700 mb-1">Owner</label>
+          <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className={inputClass}>
             <option value="">-- Unassigned --</option>
             {team.map((m) => (
-              <option key={m.team_id} value={m.team_id}>
-                {m.name}
-              </option>
+              <option key={m.team_id} value={m.team_id}>{m.name}</option>
             ))}
           </select>
         </div>
@@ -100,39 +72,20 @@ export default function TaskForm({
 
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Due Date
-          </label>
-          <input
-            type="date"
-            value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <label className="block text-sm font-medium text-ink-700 mb-1">Due Date</label>
+          <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputClass} />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Status
-          </label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          <label className="block text-sm font-medium text-ink-700 mb-1">Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}>
             <option value="todo">To Do</option>
             <option value="doing">Doing</option>
             <option value="done">Done</option>
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Priority
-          </label>
-          <select
-            value={priority}
-            onChange={(e) => setPriority(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
+          <label className="block text-sm font-medium text-ink-700 mb-1">Priority</label>
+          <select value={priority} onChange={(e) => setPriority(e.target.value)} className={inputClass}>
             <option value="low">Low</option>
             <option value="medium">Medium</option>
             <option value="high">High</option>
@@ -141,30 +94,14 @@ export default function TaskForm({
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Notes
-        </label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          rows={2}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <label className="block text-sm font-medium text-ink-700 mb-1">Notes</label>
+        <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={inputClass} />
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={submitting}
-          className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm text-ink-500 hover:text-ink-700 transition-colors">Cancel</button>
+        <button type="submit" disabled={submitting}
+          className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 disabled:opacity-50 transition-colors font-medium">
           {submitting ? "Saving..." : initial?.task_id ? "Update" : "Create"}
         </button>
       </div>

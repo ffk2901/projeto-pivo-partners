@@ -12,7 +12,7 @@ import type {
   Investor,
   TeamMember,
 } from "@/types";
-import PipelineTab from "@/components/PipelineTab";
+import FunnelBoard from "@/components/FunnelBoard";
 import TasksTab from "@/components/TasksTab";
 import MaterialsTab from "@/components/MaterialsTab";
 
@@ -57,12 +57,10 @@ export default function ProjectDetailPage() {
           : null
       );
 
-      // Show project-scoped tasks; optionally include startup-level tasks
       const projectTasks = allTasks.filter((t) => t.project_id === projectId);
       const startupTasks = proj
         ? allTasks.filter(
-            (t) =>
-              t.startup_id === proj.startup_id && !t.project_id
+            (t) => t.startup_id === proj.startup_id && !t.project_id
           )
         : [];
       setTasks(
@@ -89,7 +87,11 @@ export default function ProjectDetailPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <p className="text-gray-400">Loading...</p>
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 bg-brand-200/40 rounded w-64"></div>
+          <div className="h-8 bg-brand-200/40 rounded w-48"></div>
+          <div className="h-96 bg-brand-200/40 rounded-2xl"></div>
+        </div>
       </div>
     );
   }
@@ -97,27 +99,29 @@ export default function ProjectDetailPage() {
   if (!project) {
     return (
       <div className="p-8">
-        <p className="text-red-500">Project not found.</p>
-        <button
-          onClick={() => router.push("/projects")}
-          className="mt-2 text-sm text-blue-600 hover:underline"
-        >
-          Back to Projects
-        </button>
+        <div className="text-center py-16 bg-surface-50 rounded-2xl border border-dashed border-brand-300">
+          <p className="text-red-600 font-medium mb-2">Project not found</p>
+          <button
+            onClick={() => router.push("/projects")}
+            className="text-sm text-brand-500 hover:text-brand-700 font-medium transition-colors"
+          >
+            Back to Projects
+          </button>
+        </div>
       </div>
     );
   }
 
   const STATUS_BADGE: Record<string, string> = {
-    active: "bg-green-100 text-green-700",
-    paused: "bg-yellow-100 text-yellow-700",
-    closed: "bg-gray-100 text-gray-500",
+    active: "bg-emerald-100 text-emerald-700",
+    paused: "bg-amber-100 text-amber-700",
+    closed: "bg-ink-100 text-ink-500",
   };
 
   const openTaskCount = tasks.filter((t) => t.status !== "done").length;
 
   const TABS: { key: Tab; label: string }[] = [
-    { key: "pipeline", label: `Pipeline (${piLinks.length})` },
+    { key: "pipeline", label: `Funnel (${piLinks.length})` },
     { key: "tasks", label: `Tasks (${openTaskCount})` },
     { key: "materials", label: "Materials" },
   ];
@@ -126,53 +130,42 @@ export default function ProjectDetailPage() {
     <div className="p-8">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-          <Link href="/startups" className="hover:text-gray-600">
-            Startups
-          </Link>
+        <div className="flex items-center gap-2 text-sm text-ink-400 mb-2">
+          <Link href="/startups" className="hover:text-ink-600 transition-colors">Startups</Link>
           <span>/</span>
           {startup && (
             <>
-              <Link
-                href={`/startups/${startup.startup_id}`}
-                className="hover:text-gray-600"
-              >
+              <Link href={`/startups/${startup.startup_id}`} className="hover:text-ink-600 transition-colors">
                 {startup.startup_name}
               </Link>
               <span>/</span>
             </>
           )}
-          <span className="text-gray-600">{project.project_name}</span>
+          <span className="text-ink-600">{project.project_name}</span>
         </div>
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-gray-800">
-            {project.project_name}
-          </h1>
-          <span
-            className={`text-xs px-2 py-0.5 rounded-full capitalize ${
-              STATUS_BADGE[project.status] || STATUS_BADGE.active
-            }`}
-          >
+          <h1 className="text-2xl font-bold text-ink-800">{project.project_name}</h1>
+          <span className={`text-xs px-2.5 py-0.5 rounded-full capitalize font-medium ${
+            STATUS_BADGE[project.status] || STATUS_BADGE.active
+          }`}>
             {project.status}
           </span>
         </div>
         {startup && (
-          <p className="text-sm text-gray-400 mt-1">
-            Startup: {startup.startup_name}
-          </p>
+          <p className="text-sm text-ink-400 mt-1">Startup: {startup.startup_name}</p>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-gray-200 mb-6">
+      <div className="flex gap-1 border-b border-brand-200/60 mb-6">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === t.key
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-brand-500 text-brand-700"
+                : "border-transparent text-ink-400 hover:text-ink-700"
             }`}
           >
             {t.label}
@@ -181,7 +174,7 @@ export default function ProjectDetailPage() {
       </div>
 
       {tab === "pipeline" && (
-        <PipelineTab
+        <FunnelBoard
           projectId={projectId}
           links={piLinks}
           investors={investors}
@@ -192,12 +185,12 @@ export default function ProjectDetailPage() {
       {tab === "tasks" && (
         <div>
           <div className="mb-3">
-            <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+            <label className="flex items-center gap-2 text-xs text-ink-500 cursor-pointer">
               <input
                 type="checkbox"
                 checked={showStartupTasks}
                 onChange={(e) => setShowStartupTasks(e.target.checked)}
-                className="rounded border-gray-300"
+                className="rounded border-brand-300 text-brand-500 focus:ring-brand-500/40"
               />
               Include startup-level tasks
             </label>

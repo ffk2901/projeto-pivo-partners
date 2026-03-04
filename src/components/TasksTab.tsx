@@ -18,17 +18,11 @@ type View = "byPerson" | "list";
 
 const PRIORITY_COLORS = {
   high: "bg-red-100 text-red-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  low: "bg-gray-100 text-gray-500",
+  medium: "bg-amber-100 text-amber-700",
+  low: "bg-ink-100 text-ink-500",
 };
 
-export default function TasksTab({
-  startupId,
-  tasks,
-  team,
-  startups,
-  onRefresh,
-}: Props) {
+export default function TasksTab({ startupId, tasks, team, startups, onRefresh }: Props) {
   const [view, setView] = useState<View>("byPerson");
   const [showAdd, setShowAdd] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -36,10 +30,7 @@ export default function TasksTab({
 
   const today = new Date().toISOString().split("T")[0];
 
-  const filteredTasks =
-    filterStatus === "all"
-      ? tasks
-      : tasks.filter((t) => t.status === filterStatus);
+  const filteredTasks = filterStatus === "all" ? tasks : tasks.filter((t) => t.status === filterStatus);
 
   const handleCreate = async (data: Partial<Task>) => {
     await api().createTask({ ...data, startup_id: startupId });
@@ -61,70 +52,43 @@ export default function TasksTab({
     onRefresh();
   };
 
-  const getOwnerName = (id: string) =>
-    team.find((m) => m.team_id === id)?.name || "Unassigned";
+  const getOwnerName = (id: string) => team.find((m) => m.team_id === id)?.name || "Unassigned";
 
   const renderTaskCard = (task: Task) => (
-    <div
-      key={task.task_id}
-      className="bg-white border border-gray-200 rounded-lg px-3 py-2.5 hover:border-gray-300 transition-colors"
-    >
+    <div key={task.task_id} className="bg-surface-0 border border-brand-200/60 rounded-xl px-3 py-2.5 hover:border-brand-400 transition-colors">
       <div className="flex items-start gap-2">
         <button
           onClick={() => handleToggle(task)}
-          className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center ${
+          className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
             task.status === "done"
-              ? "border-blue-500 bg-blue-500"
-              : "border-gray-300 hover:border-blue-500"
+              ? "border-brand-500 bg-brand-500"
+              : "border-brand-300 hover:border-brand-500"
           }`}
         >
-          {task.status === "done" && (
-            <span className="text-white text-xs">&#10003;</span>
-          )}
+          {task.status === "done" && <span className="text-white text-xs">&#10003;</span>}
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between">
-            <p
-              className={`text-sm leading-snug ${
-                task.status === "done"
-                  ? "text-gray-400 line-through"
-                  : "text-gray-800"
-              }`}
-            >
+            <p className={`text-sm leading-snug ${task.status === "done" ? "text-ink-400 line-through" : "text-ink-800"}`}>
               {task.title}
             </p>
-            <button
-              onClick={() => setEditingTask(task)}
-              className="text-gray-300 hover:text-gray-500 text-xs ml-2 flex-shrink-0"
-            >
+            <button onClick={() => setEditingTask(task)} className="text-ink-300 hover:text-ink-500 text-xs ml-2 flex-shrink-0 transition-colors">
               edit
             </button>
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {task.due_date && (
-              <span
-                className={`text-xs ${
-                  task.due_date < today && task.status !== "done"
-                    ? "text-red-500 font-medium"
-                    : "text-gray-400"
-                }`}
-              >
+              <span className={`text-xs ${task.due_date < today && task.status !== "done" ? "text-red-500 font-medium" : "text-ink-400"}`}>
                 {task.due_date}
               </span>
             )}
             {task.priority && task.priority !== "medium" && (
-              <span
-                className={`text-xs px-1.5 py-0.5 rounded ${
-                  PRIORITY_COLORS[task.priority]
-                }`}
-              >
+              <span className={`text-xs px-1.5 py-0.5 rounded-md ${PRIORITY_COLORS[task.priority]}`}>
                 {task.priority}
               </span>
             )}
             {task.status === "doing" && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                in progress
-              </span>
+              <span className="text-xs px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">in progress</span>
             )}
           </div>
         </div>
@@ -137,42 +101,29 @@ export default function TasksTab({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
-            <button
-              onClick={() => setView("byPerson")}
-              className={`px-2.5 py-1 text-xs rounded ${
-                view === "byPerson"
-                  ? "bg-gray-200 text-gray-800"
-                  : "text-gray-500 hover:bg-gray-100"
-              }`}
-            >
+            <button onClick={() => setView("byPerson")}
+              className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors ${
+                view === "byPerson" ? "bg-brand-500 text-white" : "text-ink-500 bg-surface-0 border border-brand-200/60 hover:bg-brand-50"
+              }`}>
               By Person
             </button>
-            <button
-              onClick={() => setView("list")}
-              className={`px-2.5 py-1 text-xs rounded ${
-                view === "list"
-                  ? "bg-gray-200 text-gray-800"
-                  : "text-gray-500 hover:bg-gray-100"
-              }`}
-            >
+            <button onClick={() => setView("list")}
+              className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors ${
+                view === "list" ? "bg-brand-500 text-white" : "text-ink-500 bg-surface-0 border border-brand-200/60 hover:bg-brand-50"
+              }`}>
               List
             </button>
           </div>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="text-xs border border-gray-300 rounded px-2 py-1"
-          >
+          <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
+            className="text-xs border border-brand-200 rounded-xl px-2.5 py-1.5 bg-surface-0 focus:outline-none focus:ring-1 focus:ring-brand-500/40 cursor-pointer">
             <option value="all">All</option>
             <option value="todo">To Do</option>
             <option value="doing">Doing</option>
             <option value="done">Done</option>
           </select>
         </div>
-        <button
-          onClick={() => setShowAdd(true)}
-          className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
+        <button onClick={() => setShowAdd(true)}
+          className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm">
           + Add Task
         </button>
       </div>
@@ -182,26 +133,18 @@ export default function TasksTab({
           {team.map((member) => {
             const memberTasks = filteredTasks
               .filter((t) => t.owner_id === member.team_id)
-              .sort((a, b) =>
-                (a.due_date || "9999").localeCompare(b.due_date || "9999")
-              );
+              .sort((a, b) => (a.due_date || "9999").localeCompare(b.due_date || "9999"));
             return (
               <div key={member.team_id}>
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
+                  <div className="w-6 h-6 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-bold">
                     {member.name.charAt(0).toUpperCase()}
                   </div>
-                  <h4 className="text-sm font-semibold text-gray-700">
-                    {member.name}
-                  </h4>
-                  <span className="text-xs text-gray-400">
-                    ({memberTasks.length})
-                  </span>
+                  <h4 className="text-sm font-semibold text-ink-700">{member.name}</h4>
+                  <span className="text-xs text-ink-400">({memberTasks.length})</span>
                 </div>
                 <div className="space-y-2">
-                  {memberTasks.length === 0 && (
-                    <p className="text-xs text-gray-300 py-2">No tasks</p>
-                  )}
+                  {memberTasks.length === 0 && <p className="text-xs text-ink-300 py-2 italic">No tasks</p>}
                   {memberTasks.map(renderTaskCard)}
                 </div>
               </div>
@@ -211,52 +154,24 @@ export default function TasksTab({
       ) : (
         <div className="space-y-2 max-w-2xl">
           {filteredTasks
-            .sort((a, b) =>
-              (a.due_date || "9999").localeCompare(b.due_date || "9999")
-            )
+            .sort((a, b) => (a.due_date || "9999").localeCompare(b.due_date || "9999"))
             .map((task) => (
               <div key={task.task_id} className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 w-20 flex-shrink-0">
-                  {getOwnerName(task.owner_id)}
-                </span>
+                <span className="text-xs text-ink-400 w-20 flex-shrink-0">{getOwnerName(task.owner_id)}</span>
                 <div className="flex-1">{renderTaskCard(task)}</div>
               </div>
             ))}
-          {filteredTasks.length === 0 && (
-            <p className="text-xs text-gray-400">No tasks match the filter.</p>
-          )}
+          {filteredTasks.length === 0 && <p className="text-xs text-ink-400 italic">No tasks match the filter.</p>}
         </div>
       )}
 
-      {/* Add task */}
-      <Modal
-        open={showAdd}
-        onClose={() => setShowAdd(false)}
-        title="Add Task"
-      >
-        <TaskForm
-          team={team}
-          startups={startups}
-          initial={{ startup_id: startupId }}
-          onSubmit={handleCreate}
-          onCancel={() => setShowAdd(false)}
-        />
+      <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Task">
+        <TaskForm team={team} startups={startups} initial={{ startup_id: startupId }} onSubmit={handleCreate} onCancel={() => setShowAdd(false)} />
       </Modal>
 
-      {/* Edit task */}
-      <Modal
-        open={!!editingTask}
-        onClose={() => setEditingTask(null)}
-        title="Edit Task"
-      >
+      <Modal open={!!editingTask} onClose={() => setEditingTask(null)} title="Edit Task">
         {editingTask && (
-          <TaskForm
-            team={team}
-            startups={startups}
-            initial={editingTask}
-            onSubmit={handleUpdate}
-            onCancel={() => setEditingTask(null)}
-          />
+          <TaskForm team={team} startups={startups} initial={editingTask} onSubmit={handleUpdate} onCancel={() => setEditingTask(null)} />
         )}
       </Modal>
     </div>

@@ -27,26 +27,26 @@ export default function Modal({ open, onClose, title, children, wide }: ModalPro
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/30"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-brand-900/40 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
     >
       <div
-        className={`bg-white rounded-xl shadow-xl border border-gray-200 ${
+        className={`bg-surface-0 rounded-2xl shadow-xl border border-brand-200/60 ${
           wide ? "w-full max-w-2xl" : "w-full max-w-md"
         } max-h-[80vh] flex flex-col`}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-800">{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-100">
+          <h2 className="text-base font-semibold text-ink-800">{title}</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-ink-700 hover:bg-brand-100 transition-colors text-lg leading-none"
           >
             &times;
           </button>
         </div>
-        <div className="p-5 overflow-y-auto flex-1">{children}</div>
+        <div className="p-6 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );

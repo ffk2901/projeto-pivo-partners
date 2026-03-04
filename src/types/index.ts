@@ -53,12 +53,25 @@ export interface Investor {
   notes: string;
 }
 
-// NEW — pipeline is per-project now
+// Funnel stages
+export const FUNNEL_STAGES = [
+  "Pipeline",
+  "On Hold",
+  "Trying to reach",
+  "Active",
+  "Advanced",
+  "Declined",
+] as const;
+
+export type FunnelStage = (typeof FUNNEL_STAGES)[number];
+
+// Pipeline is per-project — with position_index for ordering
 export interface ProjectInvestor {
   link_id: string;
   project_id: string;
   investor_id: string;
   stage: string;
+  position_index: number;
   last_update: string; // YYYY-MM-DD
   next_action: string;
   notes: string;
@@ -93,4 +106,12 @@ export interface ProjectWithCounts extends Project {
 export interface StartupWithCounts extends Startup {
   openTaskCount: number;
   projectCount: number;
+}
+
+// Funnel Hub summary per project
+export interface FunnelSummary {
+  project: Project;
+  startup_name: string;
+  stageCounts: Record<string, number>;
+  totalInvestors: number;
 }
