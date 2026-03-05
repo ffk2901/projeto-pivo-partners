@@ -2,12 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    "Helvetica Neue", Arial, sans-serif;
+@layer base {
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      "Helvetica Neue", Arial, sans-serif;
+    background-color: #F5F1ED;
+    color: #323232;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
 }
 
 /* Kanban drag styling */
 .dragging {
   opacity: 0.5;
+}
+
+/* Smooth scrollbar for funnel board */
+.funnel-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+.funnel-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.funnel-scroll::-webkit-scrollbar-thumb {
+  background: #C9B9A3;
+  border-radius: 4px;
+}
+.funnel-scroll::-webkit-scrollbar-thumb:hover {
+  background: #AF8A6D;
 }

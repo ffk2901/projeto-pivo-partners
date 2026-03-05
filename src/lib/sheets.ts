@@ -11,6 +11,7 @@ import type {
   TaskStatus,
   TaskPriority,
 } from "@/types";
+import { FUNNEL_STAGES } from "@/types";
 
 // ============================================
 // Google Sheets client singleton
@@ -149,6 +150,7 @@ function toProjectInvestor(row: string[]): ProjectInvestor {
   return {
     link_id: row[0] || "", project_id: row[1] || "", investor_id: row[2] || "",
     stage: row[3] || "", last_update: row[4] || "", next_action: row[5] || "", notes: row[6] || "",
+    position_index: row[7] ? parseInt(row[7], 10) : 0,
   };
 }
 
@@ -209,7 +211,7 @@ export async function getInvestors(): Promise<Investor[]> {
 export async function getProjectInvestors(): Promise<ProjectInvestor[]> {
   const k = "project_investors"; const c = getCached<ProjectInvestor[]>(k); if (c) return c;
   try {
-    const rows = await readRange(`${TAB.PROJECT_INVESTORS}!A2:G`);
+    const rows = await readRange(`${TAB.PROJECT_INVESTORS}!A2:H`);
     const data = rows.map(toProjectInvestor).filter((pi) => pi.link_id);
     setCache(k, data); return data;
   } catch { return []; }
@@ -234,7 +236,7 @@ export async function getConfig(): Promise<ConfigRow[]> {
 export async function getPipelineStages(): Promise<string[]> {
   const config = await getConfig();
   const row = config.find((c) => c.key === "pipeline_stages");
-  if (!row) return ["Potentials","Initial Contact","Advanced Contact","Due Diligence","Negotiation","Declined","Accepted"];
+  if (!row) return [...FUNNEL_STAGES];
   return row.value.split("|").map((s) => s.trim());
 }
 
@@ -334,20 +336,20 @@ export async function updateInvestor(investor: Investor): Promise<void> {
   invalidateCache("investors");
 }
 
-// Project-Investors
+// Project-Investors (8 columns: A-H with position_index)
 export async function createProjectInvestor(pi: ProjectInvestor): Promise<void> {
-  await appendRows(`${TAB.PROJECT_INVESTORS}!A:G`, [[
+  await appendRows(`${TAB.PROJECT_INVESTORS}!A:H`, [[
     pi.link_id, pi.project_id, pi.investor_id, pi.stage,
-    pi.last_update, pi.next_action, pi.notes,
+    pi.last_update, pi.next_action, pi.notes, String(pi.position_index),
   ]]);
   invalidateCache("project_investors");
 }
 
 export async function updateProjectInvestor(pi: ProjectInvestor): Promise<void> {
   const rowNum = await findRowById(TAB.PROJECT_INVESTORS, pi.link_id);
-  await updateRange(`${TAB.PROJECT_INVESTORS}!A${rowNum}:G${rowNum}`, [[
+  await updateRange(`${TAB.PROJECT_INVESTORS}!A${rowNum}:H${rowNum}`, [[
     pi.link_id, pi.project_id, pi.investor_id, pi.stage,
-    pi.last_update, pi.next_action, pi.notes,
+    pi.last_update, pi.next_action, pi.notes, String(pi.position_index),
   ]]);
   invalidateCache("project_investors");
 }
