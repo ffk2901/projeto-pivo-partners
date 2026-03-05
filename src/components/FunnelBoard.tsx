@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -193,6 +193,22 @@ function DragOverlayCard({ link, investor }: { link: ProjectInvestor; investor?:
   );
 }
 
+// ── helpers ──
+function resolveOverToStage(overId: string, links: ProjectInvestor[]): string | undefined {
+  if (typeof overId === "string" && overId.startsWith("stage:")) return overId.replace("stage:", "");
+  return links.find((l) => l.link_id === overId)?.stage;
+}
+
+function applyStageMove(links: ProjectInvestor[], linkId: string, newStage: string): ProjectInvestor[] {
+  const stageCards = links.filter((l) => l.stage === newStage && l.link_id !== linkId);
+  const maxPos = stageCards.reduce((max, l) => Math.max(max, l.position_index), -1);
+  return links.map((l) =>
+    l.link_id === linkId
+      ? { ...l, stage: newStage, position_index: maxPos + 1, last_update: new Date().toISOString().split("T")[0] }
+      : l
+  );
+}
+
 // ── Main FunnelBoard ──
 export default function FunnelBoard({ projectId, links, investors, stages, onRefresh }: Props) {
   const [showPicker, setShowPicker] = useState(false);
@@ -201,9 +217,22 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
   const [editNextAction, setEditNextAction] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  // Optimistic state
+  // Optimistic state — kept until next props arrive with fresh data
   const [optimisticLinks, setOptimisticLinks] = useState<ProjectInvestor[] | null>(null);
   const displayLinks = optimisticLinks || links;
+
+  // Track pending background saves to avoid clearing optimistic state prematurely
+  const pendingSaves = useRef(0);
+
+  // When parent provides new links (from onRefresh), clear optimistic state if no saves pending
+  const prevLinksRef = useRef(links);
+  if (links !== prevLinksRef.current) {
+    prevLinksRef.current = links;
+    if (pendingSaves.current === 0) {
+      // Fresh data arrived and nothing pending — trust server data
+      if (optimisticLinks !== null) setOptimisticLinks(null);
+    }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -221,72 +250,97 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     }));
   }, [stages, displayLinks]);
 
-  // Find which stage a card belongs to
-  const findStageForCard = (cardId: string): string | undefined => {
-    return displayLinks.find((l) => l.link_id === cardId)?.stage;
-  };
-
-  // Resolve an over.id to a stage name — handles both stage droppable IDs and card IDs
-  const resolveOverToStage = (overId: string): string | undefined => {
-    if (overId.startsWith("stage:")) return overId.replace("stage:", "");
-    return findStageForCard(overId);
-  };
-
   const [overStage, setOverStage] = useState<string | null>(null);
 
-  const changeStage = async (linkId: string, newStage: string) => {
-    const link = displayLinks.find((l) => l.link_id === linkId);
+  // Fire-and-forget: persist change to server + background refresh. Revert on error.
+  const persistStageChange = useCallback((linkId: string, newStage: string, positionIndex: number, snapshotBeforeChange: ProjectInvestor[]) => {
+    pendingSaves.current += 1;
+    api()
+      .updateProjectInvestor({ link_id: linkId, stage: newStage, position_index: positionIndex })
+      .then(() => onRefresh())
+      .catch((err) => {
+        console.error("Failed to update stage:", err);
+        // Revert to snapshot before this change
+        setOptimisticLinks(snapshotBeforeChange);
+      })
+      .finally(() => {
+        pendingSaves.current -= 1;
+      });
+  }, [onRefresh]);
+
+  const persistReorder = useCallback((linkId: string, newIndex: number, snapshotBeforeChange: ProjectInvestor[]) => {
+    pendingSaves.current += 1;
+    api()
+      .updateProjectInvestor({ link_id: linkId, position_index: newIndex })
+      .then(() => onRefresh())
+      .catch((err) => {
+        console.error("Failed to reorder:", err);
+        setOptimisticLinks(snapshotBeforeChange);
+      })
+      .finally(() => {
+        pendingSaves.current -= 1;
+      });
+  }, [onRefresh]);
+
+  // Stage change via dropdown (on card or in detail modal)
+  const changeStage = useCallback((linkId: string, newStage: string) => {
+    const currentLinks = optimisticLinks || links;
+    const link = currentLinks.find((l) => l.link_id === linkId);
     if (!link || link.stage === newStage) return;
 
-    const stageCards = displayLinks.filter((l) => l.stage === newStage && l.link_id !== linkId);
-    const maxPos = stageCards.reduce((max, l) => Math.max(max, l.position_index), -1);
-
-    const updated = displayLinks.map((l) =>
-      l.link_id === linkId
-        ? { ...l, stage: newStage, position_index: maxPos + 1, last_update: new Date().toISOString().split("T")[0] }
-        : l
-    );
+    const snapshotBeforeChange = currentLinks;
+    const updated = applyStageMove(currentLinks, linkId, newStage);
     setOptimisticLinks(updated);
 
-    try {
-      await api().updateProjectInvestor({ link_id: linkId, stage: newStage, position_index: maxPos + 1 });
-      await onRefresh();
-    } catch (err) {
-      console.error("Failed to update stage:", err);
-    } finally {
-      setOptimisticLinks(null);
-    }
-  };
+    const movedCard = updated.find((l) => l.link_id === linkId)!;
+    persistStageChange(linkId, newStage, movedCard.position_index, snapshotBeforeChange);
+  }, [links, optimisticLinks, persistStageChange]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
-    const { over } = event;
+    const { active, over } = event;
     if (!over) { setOverStage(null); return; }
-    const stage = resolveOverToStage(over.id as string);
-    setOverStage(stage || null);
+
+    const currentLinks = optimisticLinks || links;
+    const targetStage = resolveOverToStage(over.id as string, currentLinks);
+    setOverStage(targetStage || null);
+
+    if (!targetStage) return;
+
+    const activeLink = currentLinks.find((l) => l.link_id === active.id);
+    if (!activeLink || activeLink.stage === targetStage) return;
+
+    // Optimistically move the card to the target column during the drag
+    const updated = applyStageMove(currentLinks, active.id as string, targetStage);
+    setOptimisticLinks(updated);
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
     setOverStage(null);
 
     if (!over) return;
 
-    const activeLink = displayLinks.find((l) => l.link_id === active.id);
+    const currentLinks = optimisticLinks || links;
+    const activeLink = currentLinks.find((l) => l.link_id === active.id);
     if (!activeLink) return;
 
-    const targetStage = resolveOverToStage(over.id as string) || activeLink.stage;
+    const targetStage = resolveOverToStage(over.id as string, currentLinks) || activeLink.stage;
+
+    // The card was already moved optimistically during handleDragOver if cross-column.
+    // We need to check if the card's current (optimistic) stage matches the final target.
+    const snapshotBeforeChange = links; // original server state for revert
 
     if (activeLink.stage === targetStage) {
-      // Reorder within the same stage — only if dropping on a card (not the column droppable)
+      // Same-column drop: check for reorder
       const overIsCard = !String(over.id).startsWith("stage:");
-      if (!overIsCard) return;
+      if (!overIsCard) return; // dropped on column background, no reorder
 
-      const stageCards = displayLinks
+      const stageCards = currentLinks
         .filter((l) => l.stage === targetStage)
         .sort((a, b) => a.position_index - b.position_index);
 
@@ -295,28 +349,20 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
 
       if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
         const reordered = arrayMove(stageCards, oldIndex, newIndex);
-        const updated = displayLinks.map((l) => {
+        const updated = currentLinks.map((l) => {
           if (l.stage !== targetStage) return l;
           const idx = reordered.findIndex((c) => c.link_id === l.link_id);
           return idx >= 0 ? { ...l, position_index: idx } : l;
         });
         setOptimisticLinks(updated);
-
-        try {
-          await api().updateProjectInvestor({
-            link_id: active.id as string,
-            position_index: newIndex,
-          });
-          await onRefresh();
-        } catch {
-          // revert handled by finally
-        } finally {
-          setOptimisticLinks(null);
-        }
+        persistReorder(active.id as string, newIndex, snapshotBeforeChange);
       }
     } else {
-      // Move to a different stage
-      await changeStage(active.id as string, targetStage);
+      // Cross-column: card was already moved during dragOver, just persist
+      const movedCard = currentLinks.find((l) => l.link_id === active.id);
+      if (movedCard) {
+        persistStageChange(active.id as string, targetStage, movedCard.position_index, snapshotBeforeChange);
+      }
     }
   };
 
@@ -328,7 +374,8 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     // Optimistic: immediately add a card in the first stage
     const tempLinkId = `temp_${Date.now()}`;
     const firstStage = stages[0] || "Pipeline";
-    const stageCards = displayLinks.filter((l) => l.stage === firstStage);
+    const currentLinks = optimisticLinks || links;
+    const stageCards = currentLinks.filter((l) => l.stage === firstStage);
     const maxPos = stageCards.reduce((max, l) => Math.max(max, l.position_index), -1);
     const optimisticLink: ProjectInvestor = {
       link_id: tempLinkId,
@@ -340,16 +387,19 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
       next_action: "",
       notes: "",
     };
-    setOptimisticLinks([...displayLinks, optimisticLink]);
+    setOptimisticLinks([...currentLinks, optimisticLink]);
 
     try {
+      pendingSaves.current += 1;
       await api().createProjectInvestor({ project_id: projectId, investor_id: investorId });
       await onRefresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add investor";
       setAddError(message);
-      throw err; // Re-throw so InvestorPicker can show the error
+      setOptimisticLinks(null);
+      throw err;
     } finally {
+      pendingSaves.current -= 1;
       setOptimisticLinks(null);
     }
   };
