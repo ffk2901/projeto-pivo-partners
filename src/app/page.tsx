@@ -52,6 +52,7 @@ export default function HomePage() {
   const [showAddTask, setShowAddTask] = useState(false);
   const [showAddStartup, setShowAddStartup] = useState(false);
   const [newStartupName, setNewStartupName] = useState("");
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
@@ -115,6 +116,18 @@ export default function HomePage() {
         task_id: task.task_id,
         status: task.status === "done" ? "todo" : "done",
       });
+      loadData();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setError(`Failed to update task: ${msg}`);
+    }
+  };
+
+  const handleUpdateTask = async (data: Partial<Task>) => {
+    try {
+      await api().updateTask(data);
+      setEditingTask(null);
+      setError(null);
       loadData();
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -250,7 +263,15 @@ export default function HomePage() {
                       )}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-ink-800 leading-snug">{task.title}</p>
+                      <div className="flex items-start justify-between">
+                        <p className="text-sm text-ink-800 leading-snug">{task.title}</p>
+                        <button
+                          onClick={() => setEditingTask(task)}
+                          className="text-ink-300 hover:text-ink-500 text-xs ml-2 flex-shrink-0 transition-colors"
+                        >
+                          edit
+                        </button>
+                      </div>
                       <div className="flex items-center gap-2 mt-1">
                         {task.due_date && (
                           <span className={`text-xs ${task.due_date < today ? "text-red-500 font-medium" : "text-ink-400"}`}>
@@ -282,7 +303,10 @@ export default function HomePage() {
           <div className="space-y-2 max-w-md">
             {unassigned.map((task) => (
               <div key={task.task_id} className="bg-surface-0 border border-brand-200/60 rounded-xl px-3 py-2.5">
-                <p className="text-sm text-ink-800">{task.title}</p>
+                <div className="flex items-start justify-between">
+                  <p className="text-sm text-ink-800">{task.title}</p>
+                  <button onClick={() => setEditingTask(task)} className="text-ink-300 hover:text-ink-500 text-xs ml-2 flex-shrink-0 transition-colors">edit</button>
+                </div>
                 {task.due_date && (
                   <span className={`text-xs ${task.due_date < today ? "text-red-500 font-medium" : "text-ink-400"}`}>
                     {task.due_date}
@@ -297,6 +321,13 @@ export default function HomePage() {
       {/* Add Task Modal */}
       <Modal open={showAddTask} onClose={() => setShowAddTask(false)} title="Add Task">
         <TaskForm team={team} startups={startups} onSubmit={handleCreateTask} onCancel={() => setShowAddTask(false)} />
+      </Modal>
+
+      {/* Edit Task Modal */}
+      <Modal open={!!editingTask} onClose={() => setEditingTask(null)} title="Edit Task">
+        {editingTask && (
+          <TaskForm team={team} startups={startups} initial={editingTask} onSubmit={handleUpdateTask} onCancel={() => setEditingTask(null)} />
+        )}
       </Modal>
 
       {/* Add Startup Modal */}

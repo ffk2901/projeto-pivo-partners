@@ -68,6 +68,40 @@ export function invalidateCache(prefix?: string): void {
 // Generic read/write
 // ============================================
 
+async function ensureTabExists(tabName: string, headers: string[]): Promise<void> {
+  const sheets = getSheets();
+  const spreadsheetId = getSpreadsheetId();
+  try {
+    // Check if tab exists by trying to read it
+    await sheets.spreadsheets.values.get({ spreadsheetId, range: `${tabName}!A1` });
+  } catch {
+    // Tab doesn't exist — create it
+    try {
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{ addSheet: { properties: { title: tabName } } }],
+        },
+      });
+      // Write header row
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${tabName}!A1`,
+        valueInputOption: "RAW",
+        requestBody: { values: [headers] },
+      });
+    } catch (createErr) {
+      // If creation also fails (e.g., already exists due to race condition), ignore
+      console.warn(`ensureTabExists(${tabName}):`, createErr);
+    }
+  }
+}
+
+const TAB_HEADERS: Record<string, string[]> = {
+  PROJECT_INVESTORS: ["link_id", "project_id", "investor_id", "stage", "last_update", "next_action", "notes", "position_index"],
+  PROJECT_NOTES: ["note_id", "project_id", "author_id", "title", "content", "created_at", "updated_at"],
+};
+
 async function readRange(range: string): Promise<string[][]> {
   const sheets = getSheets();
   const res = await sheets.spreadsheets.values.get({ spreadsheetId: getSpreadsheetId(), range });
@@ -352,6 +386,7 @@ export async function updateInvestor(investor: Investor): Promise<void> {
 
 // Project-Investors (8 columns: A-H with position_index)
 export async function createProjectInvestor(pi: ProjectInvestor): Promise<void> {
+  await ensureTabExists(TAB.PROJECT_INVESTORS, TAB_HEADERS.PROJECT_INVESTORS);
   await appendRows(`${TAB.PROJECT_INVESTORS}!A:H`, [[
     pi.link_id, pi.project_id, pi.investor_id, pi.stage,
     pi.last_update, pi.next_action, pi.notes, String(pi.position_index),
@@ -406,6 +441,7 @@ export async function getProjectNotes(): Promise<ProjectNote[]> {
 }
 
 export async function createProjectNote(note: ProjectNote): Promise<void> {
+  await ensureTabExists(TAB.PROJECT_NOTES, TAB_HEADERS.PROJECT_NOTES);
   await appendRows(`${TAB.PROJECT_NOTES}!A:G`, [[
     note.note_id, note.project_id, note.author_id, note.title,
     note.content, note.created_at, note.updated_at,
