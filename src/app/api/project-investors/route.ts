@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getProjectInvestors, createProjectInvestor, updateProjectInvestor,
-  generateId, getPipelineStages,
+  deleteProjectInvestor, generateId, getPipelineStages,
 } from "@/lib/sheets";
 import type { ProjectInvestor } from "@/types";
 
@@ -92,6 +92,25 @@ export async function PUT(req: NextRequest) {
     };
     await updateProjectInvestor(updated);
     return NextResponse.json(updated);
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const linkId = searchParams.get("link_id");
+    if (!linkId) {
+      return NextResponse.json({ error: "link_id is required" }, { status: 400 });
+    }
+    const all = await getProjectInvestors();
+    const existing = all.find((pi) => pi.link_id === linkId);
+    if (!existing) {
+      return NextResponse.json({ error: `Link "${linkId}" not found` }, { status: 404 });
+    }
+    await deleteProjectInvestor(linkId);
+    return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
   }

@@ -59,6 +59,8 @@ export function api() {
       post<import("@/types").ProjectInvestor>("/api/project-investors", d),
     updateProjectInvestor: (d: Partial<import("@/types").ProjectInvestor>) =>
       put<import("@/types").ProjectInvestor>("/api/project-investors", d),
+    deleteProjectInvestor: (linkId: string) =>
+      fetchJson<{ success: boolean }>(`/api/project-investors?link_id=${linkId}`, { method: "DELETE" }),
 
     // Startup-Investors (legacy)
     getStartupInvestors: (startupId?: string) => {

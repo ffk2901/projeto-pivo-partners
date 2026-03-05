@@ -408,6 +408,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     setShowDetail(link.link_id);
     setEditNotes(link.notes);
     setEditNextAction(link.next_action);
+    setConfirmRemove(false);
   };
 
   const saveDetail = async () => {
@@ -416,6 +417,30 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     setShowDetail(null);
     onRefresh();
   };
+
+  const [confirmRemove, setConfirmRemove] = useState(false);
+
+  const removeInvestor = useCallback((linkId: string) => {
+    const currentLinks = optimisticLinks || links;
+    const snapshotBeforeChange = currentLinks;
+
+    // Optimistic: remove immediately
+    setOptimisticLinks(currentLinks.filter((l) => l.link_id !== linkId));
+    setShowDetail(null);
+    setConfirmRemove(false);
+
+    pendingSaves.current += 1;
+    api()
+      .deleteProjectInvestor(linkId)
+      .then(() => onRefresh())
+      .catch((err) => {
+        console.error("Failed to remove investor:", err);
+        setOptimisticLinks(snapshotBeforeChange);
+      })
+      .finally(() => {
+        pendingSaves.current -= 1;
+      });
+  }, [links, optimisticLinks, onRefresh]);
 
   const detailLink = displayLinks.find((l) => l.link_id === showDetail);
   const detailInvestor = detailLink ? getInvestor(detailLink.investor_id) : null;
@@ -547,9 +572,35 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
                 className="w-full border border-brand-200 rounded-xl px-3 py-2 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               />
             </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button onClick={() => setShowDetail(null)} className="px-4 py-2 text-sm text-ink-500 hover:text-ink-700 transition-colors">Cancel</button>
-              <button onClick={saveDetail} className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium">Save</button>
+            <div className="flex items-center justify-between pt-2 border-t border-brand-200/40">
+              {!confirmRemove ? (
+                <button
+                  onClick={() => setConfirmRemove(true)}
+                  className="px-3 py-2 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  Remove from funnel
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-red-600">Are you sure?</span>
+                  <button
+                    onClick={() => removeInvestor(detailLink.link_id)}
+                    className="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
+                  >
+                    Yes, remove
+                  </button>
+                  <button
+                    onClick={() => setConfirmRemove(false)}
+                    className="px-3 py-1.5 text-xs text-ink-500 hover:text-ink-700 transition-colors"
+                  >
+                    No
+                  </button>
+                </div>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => { setShowDetail(null); setConfirmRemove(false); }} className="px-4 py-2 text-sm text-ink-500 hover:text-ink-700 transition-colors">Cancel</button>
+                <button onClick={saveDetail} className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium">Save</button>
+              </div>
             </div>
           </div>
         )}
