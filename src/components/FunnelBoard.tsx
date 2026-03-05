@@ -331,11 +331,13 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
 
     const targetStage = resolveOverToStage(over.id as string, currentLinks) || activeLink.stage;
 
-    // The card was already moved optimistically during handleDragOver if cross-column.
-    // We need to check if the card's current (optimistic) stage matches the final target.
+    // Compare against the original server state to detect cross-column moves,
+    // since handleDragOver already optimistically moved the card to the target column.
     const snapshotBeforeChange = links; // original server state for revert
+    const originalLink = links.find((l) => l.link_id === active.id);
+    const wasMovedCrossColumn = originalLink && originalLink.stage !== targetStage;
 
-    if (activeLink.stage === targetStage) {
+    if (!wasMovedCrossColumn) {
       // Same-column drop: check for reorder
       const overIsCard = !String(over.id).startsWith("stage:");
       if (!overIsCard) return; // dropped on column background, no reorder
