@@ -4,11 +4,12 @@ import { useState, useMemo } from "react";
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  closestCorners,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
@@ -30,7 +31,7 @@ interface Props {
   links: ProjectInvestor[];
   investors: Investor[];
   stages: string[];
-  onRefresh: () => void;
+  onRefresh: () => Promise<void> | void;
 }
 
 // ── Sortable Card ──
@@ -126,6 +127,7 @@ function StageColumn({
   onOpenDetail: (link: ProjectInvestor) => void;
   onChangeStage: (linkId: string, stage: string) => void;
 }) {
+  const { setNodeRef } = useDroppable({ id: `stage:${stage}` });
   const getInvestor = (id: string) => investors.find((i) => i.investor_id === id);
 
   // Stage-specific accent colors for column headers
@@ -152,7 +154,7 @@ function StageColumn({
           <span className="text-xs text-ink-400 font-medium">{cards.length}</span>
         </div>
       </div>
-      <div className="p-2 space-y-2 min-h-[120px]">
+      <div ref={setNodeRef} className="p-2 space-y-2 min-h-[120px]">
         <SortableContext items={cards.map((c) => c.link_id)} strategy={verticalListSortingStrategy}>
           {cards.map((link) => (
             <InvestorCard
@@ -219,12 +221,15 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     }));
   }, [stages, displayLinks]);
 
-  // Flat list of all card IDs for DndContext
-  const allCardIds = useMemo(() => displayLinks.map((l) => l.link_id), [displayLinks]);
-
-  // Find which stage a card is in
+  // Find which stage a card belongs to
   const findStageForCard = (cardId: string): string | undefined => {
     return displayLinks.find((l) => l.link_id === cardId)?.stage;
+  };
+
+  // Resolve an over.id to a stage name — handles both stage droppable IDs and card IDs
+  const resolveOverToStage = (overId: string): string | undefined => {
+    if (overId.startsWith("stage:")) return overId.replace("stage:", "");
+    return findStageForCard(overId);
   };
 
   const [overStage, setOverStage] = useState<string | null>(null);
@@ -245,12 +250,12 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
 
     try {
       await api().updateProjectInvestor({ link_id: linkId, stage: newStage, position_index: maxPos + 1 });
-      onRefresh();
+      await onRefresh();
     } catch (err) {
       console.error("Failed to update stage:", err);
+    } finally {
       setOptimisticLinks(null);
     }
-    setOptimisticLinks(null);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -260,10 +265,8 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
   const handleDragOver = (event: DragOverEvent) => {
     const { over } = event;
     if (!over) { setOverStage(null); return; }
-
-    // Determine which stage we're over
-    const overCardStage = findStageForCard(over.id as string);
-    setOverStage(overCardStage || null);
+    const stage = resolveOverToStage(over.id as string);
+    setOverStage(stage || null);
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -276,11 +279,13 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     const activeLink = displayLinks.find((l) => l.link_id === active.id);
     if (!activeLink) return;
 
-    const overLink = displayLinks.find((l) => l.link_id === over.id);
-    const targetStage = overLink?.stage || activeLink.stage;
+    const targetStage = resolveOverToStage(over.id as string) || activeLink.stage;
 
     if (activeLink.stage === targetStage) {
-      // Reorder within the same stage
+      // Reorder within the same stage — only if dropping on a card (not the column droppable)
+      const overIsCard = !String(over.id).startsWith("stage:");
+      if (!overIsCard) return;
+
       const stageCards = displayLinks
         .filter((l) => l.stage === targetStage)
         .sort((a, b) => a.position_index - b.position_index);
@@ -298,16 +303,16 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
         setOptimisticLinks(updated);
 
         try {
-          // Update the moved card's position
           await api().updateProjectInvestor({
             link_id: active.id as string,
             position_index: newIndex,
           });
-          onRefresh();
+          await onRefresh();
         } catch {
+          // revert handled by finally
+        } finally {
           setOptimisticLinks(null);
         }
-        setOptimisticLinks(null);
       }
     } else {
       // Move to a different stage
@@ -343,11 +348,10 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add investor";
       setAddError(message);
-      // Revert optimistic update
-      setOptimisticLinks(null);
       throw err; // Re-throw so InvestorPicker can show the error
+    } finally {
+      setOptimisticLinks(null);
     }
-    setOptimisticLinks(null);
   };
 
   const openDetail = (link: ProjectInvestor) => {
@@ -393,7 +397,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
       {/* Kanban board with dnd-kit */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCenter}
+        collisionDetection={closestCorners}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
