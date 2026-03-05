@@ -10,6 +10,7 @@ import type {
   ConfigRow,
   TaskStatus,
   TaskPriority,
+  ProjectNote,
 } from "@/types";
 import { FUNNEL_STAGES } from "@/types";
 
@@ -102,6 +103,7 @@ const TAB = {
   PROJECT_INVESTORS: "PROJECT_INVESTORS",
   STARTUP_INVESTORS: "STARTUP_INVESTORS",
   CONFIG: "CONFIG",
+  PROJECT_NOTES: "PROJECT_NOTES",
 } as const;
 
 // ============================================
@@ -109,7 +111,7 @@ const TAB = {
 // ============================================
 
 function toTeamMember(row: string[]): TeamMember {
-  return { team_id: row[0] || "", name: row[1] || "" };
+  return { team_id: row[0] || "", name: row[1] || "", email: row[2] || "" };
 }
 
 function toStartup(row: string[]): Startup {
@@ -129,13 +131,23 @@ function toProject(row: string[]): Project {
   };
 }
 
-// TASKS now has project_id at column C (index 2)
+// TASKS now has project_id at column C (index 2), plus calendar fields
 function toTask(row: string[]): Task {
   return {
     task_id: row[0] || "", startup_id: row[1] || "", project_id: row[2] || "",
     title: row[3] || "", owner_id: row[4] || "", due_date: row[5] || "",
     status: (row[6] as TaskStatus) || "todo", priority: (row[7] as TaskPriority) || "medium",
     notes: row[8] || "", created_at: row[9] || "", updated_at: row[10] || "",
+    due_time: row[11] || "", calendar_event_id: row[12] || "",
+    sync_status: (row[13] as Task["sync_status"]) || "none",
+  };
+}
+
+function toProjectNote(row: string[]): ProjectNote {
+  return {
+    note_id: row[0] || "", project_id: row[1] || "", author_id: row[2] || "",
+    title: row[3] || "", content: row[4] || "", created_at: row[5] || "",
+    updated_at: row[6] || "",
   };
 }
 
@@ -171,7 +183,7 @@ function toConfigRow(row: string[]): ConfigRow {
 
 export async function getTeam(): Promise<TeamMember[]> {
   const k = "team"; const c = getCached<TeamMember[]>(k); if (c) return c;
-  const rows = await readRange(`${TAB.TEAM}!A2:B`);
+  const rows = await readRange(`${TAB.TEAM}!A2:C`);
   const data = rows.map(toTeamMember).filter((m) => m.team_id);
   setCache(k, data); return data;
 }
@@ -194,7 +206,7 @@ export async function getProjects(): Promise<Project[]> {
 
 export async function getTasks(): Promise<Task[]> {
   const k = "tasks"; const c = getCached<Task[]>(k); if (c) return c;
-  const rows = await readRange(`${TAB.TASKS}!A2:K`);
+  const rows = await readRange(`${TAB.TASKS}!A2:N`);
   const data = rows.map(toTask).filter((t) => t.task_id);
   setCache(k, data); return data;
 }
@@ -262,20 +274,22 @@ async function findRowById(tab: string, id: string): Promise<number> {
   throw new Error(`Row with id "${id}" not found in tab "${tab}"`);
 }
 
-// Tasks (now 11 columns: A-K)
+// Tasks (14 columns: A-N including calendar fields)
 export async function createTask(task: Task): Promise<void> {
-  await appendRows(`${TAB.TASKS}!A:K`, [[
+  await appendRows(`${TAB.TASKS}!A:N`, [[
     task.task_id, task.startup_id, task.project_id, task.title, task.owner_id,
     task.due_date, task.status, task.priority, task.notes, task.created_at, task.updated_at,
+    task.due_time, task.calendar_event_id, task.sync_status,
   ]]);
   invalidateCache("tasks");
 }
 
 export async function updateTask(task: Task): Promise<void> {
   const rowNum = await findRowById(TAB.TASKS, task.task_id);
-  await updateRange(`${TAB.TASKS}!A${rowNum}:K${rowNum}`, [[
+  await updateRange(`${TAB.TASKS}!A${rowNum}:N${rowNum}`, [[
     task.task_id, task.startup_id, task.project_id, task.title, task.owner_id,
     task.due_date, task.status, task.priority, task.notes, task.created_at, task.updated_at,
+    task.due_time, task.calendar_event_id, task.sync_status,
   ]]);
   invalidateCache("tasks");
 }
@@ -370,6 +384,51 @@ export async function updateStartupInvestor(si: StartupInvestor): Promise<void> 
     si.last_update, si.next_action, si.notes,
   ]]);
   invalidateCache("startup_investors");
+}
+
+// Team update
+export async function updateTeamMember(member: TeamMember): Promise<void> {
+  const rowNum = await findRowById(TAB.TEAM, member.team_id);
+  await updateRange(`${TAB.TEAM}!A${rowNum}:C${rowNum}`, [[
+    member.team_id, member.name, member.email,
+  ]]);
+  invalidateCache("team");
+}
+
+// Project Notes (7 columns: A-G)
+export async function getProjectNotes(): Promise<ProjectNote[]> {
+  const k = "project_notes"; const c = getCached<ProjectNote[]>(k); if (c) return c;
+  try {
+    const rows = await readRange(`${TAB.PROJECT_NOTES}!A2:G`);
+    const data = rows.map(toProjectNote).filter((n) => n.note_id);
+    setCache(k, data); return data;
+  } catch { return []; }
+}
+
+export async function createProjectNote(note: ProjectNote): Promise<void> {
+  await appendRows(`${TAB.PROJECT_NOTES}!A:G`, [[
+    note.note_id, note.project_id, note.author_id, note.title,
+    note.content, note.created_at, note.updated_at,
+  ]]);
+  invalidateCache("project_notes");
+}
+
+export async function updateProjectNote(note: ProjectNote): Promise<void> {
+  const rowNum = await findRowById(TAB.PROJECT_NOTES, note.note_id);
+  await updateRange(`${TAB.PROJECT_NOTES}!A${rowNum}:G${rowNum}`, [[
+    note.note_id, note.project_id, note.author_id, note.title,
+    note.content, note.created_at, note.updated_at,
+  ]]);
+  invalidateCache("project_notes");
+}
+
+export async function deleteProjectNote(noteId: string): Promise<void> {
+  // Clear the row content (Google Sheets doesn't support row deletion via values API)
+  const rowNum = await findRowById(TAB.PROJECT_NOTES, noteId);
+  await updateRange(`${TAB.PROJECT_NOTES}!A${rowNum}:G${rowNum}`, [[
+    "", "", "", "", "", "", "",
+  ]]);
+  invalidateCache("project_notes");
 }
 
 // ============================================

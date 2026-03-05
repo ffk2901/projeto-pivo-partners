@@ -315,13 +315,39 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     }
   };
 
+  const [addError, setAddError] = useState<string | null>(null);
+
   const handleAddInvestor = async (investorId: string) => {
+    setAddError(null);
+
+    // Optimistic: immediately add a card in the first stage
+    const tempLinkId = `temp_${Date.now()}`;
+    const firstStage = stages[0] || "Pipeline";
+    const stageCards = displayLinks.filter((l) => l.stage === firstStage);
+    const maxPos = stageCards.reduce((max, l) => Math.max(max, l.position_index), -1);
+    const optimisticLink: ProjectInvestor = {
+      link_id: tempLinkId,
+      project_id: projectId,
+      investor_id: investorId,
+      stage: firstStage,
+      position_index: maxPos + 1,
+      last_update: new Date().toISOString().split("T")[0],
+      next_action: "",
+      notes: "",
+    };
+    setOptimisticLinks([...displayLinks, optimisticLink]);
+
     try {
       await api().createProjectInvestor({ project_id: projectId, investor_id: investorId });
-      onRefresh();
+      await onRefresh();
     } catch (err) {
-      console.error("Failed to add investor:", err);
+      const message = err instanceof Error ? err.message : "Failed to add investor";
+      setAddError(message);
+      // Revert optimistic update
+      setOptimisticLinks(null);
+      throw err; // Re-throw so InvestorPicker can show the error
     }
+    setOptimisticLinks(null);
   };
 
   const openDetail = (link: ProjectInvestor) => {
@@ -356,6 +382,13 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
           + Add Investor
         </button>
       </div>
+
+      {addError && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          <p className="text-sm text-red-700">{addError}</p>
+          <button onClick={() => setAddError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium ml-4">Dismiss</button>
+        </div>
+      )}
 
       {/* Kanban board with dnd-kit */}
       <DndContext

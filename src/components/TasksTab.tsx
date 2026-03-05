@@ -27,6 +27,8 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
   const [showAdd, setShowAdd] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [syncingTask, setSyncingTask] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -52,7 +54,40 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
     onRefresh();
   };
 
+  const handleCalendarSync = async (task: Task) => {
+    setSyncingTask(task.task_id);
+    setSyncError(null);
+    try {
+      await api().syncTaskToCalendar(task.task_id);
+      onRefresh();
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : "Calendar sync failed");
+    } finally {
+      setSyncingTask(null);
+    }
+  };
+
+  const handleCalendarUnsync = async (task: Task) => {
+    setSyncingTask(task.task_id);
+    setSyncError(null);
+    try {
+      await api().unsyncTaskFromCalendar(task.task_id);
+      onRefresh();
+    } catch (err) {
+      setSyncError(err instanceof Error ? err.message : "Calendar unsync failed");
+    } finally {
+      setSyncingTask(null);
+    }
+  };
+
   const getOwnerName = (id: string) => team.find((m) => m.team_id === id)?.name || "Unassigned";
+
+  const SYNC_BADGE: Record<string, string> = {
+    synced: "bg-emerald-100 text-emerald-700",
+    pending: "bg-amber-100 text-amber-700",
+    failed: "bg-red-100 text-red-700",
+    none: "",
+  };
 
   const renderTaskCard = (task: Task) => (
     <div key={task.task_id} className="bg-surface-0 border border-brand-200/60 rounded-xl px-3 py-2.5 hover:border-brand-400 transition-colors">
@@ -79,7 +114,7 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {task.due_date && (
               <span className={`text-xs ${task.due_date < today && task.status !== "done" ? "text-red-500 font-medium" : "text-ink-400"}`}>
-                {task.due_date}
+                {task.due_date}{task.due_time ? ` ${task.due_time}` : ""}
               </span>
             )}
             {task.priority && task.priority !== "medium" && (
@@ -89,6 +124,32 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
             )}
             {task.status === "doing" && (
               <span className="text-xs px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">in progress</span>
+            )}
+            {task.sync_status && task.sync_status !== "none" && (
+              <span className={`text-xs px-1.5 py-0.5 rounded-md ${SYNC_BADGE[task.sync_status] || ""}`}>
+                {task.sync_status === "synced" ? "Cal synced" : task.sync_status === "failed" ? "Sync failed" : "Pending"}
+              </span>
+            )}
+            {task.due_date && task.owner_id && (
+              syncingTask === task.task_id ? (
+                <span className="text-[10px] text-ink-400">syncing...</span>
+              ) : task.sync_status === "synced" ? (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleCalendarUnsync(task); }}
+                  className="text-[10px] text-ink-400 hover:text-red-500 transition-colors"
+                  title="Remove from Google Calendar"
+                >
+                  unsync
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleCalendarSync(task); }}
+                  className="text-[10px] text-brand-500 hover:text-brand-700 transition-colors font-medium"
+                  title="Sync to Google Calendar"
+                >
+                  sync to cal
+                </button>
+              )
             )}
           </div>
         </div>
@@ -127,6 +188,13 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
           + Add Task
         </button>
       </div>
+
+      {syncError && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between">
+          <p className="text-sm text-red-700">{syncError}</p>
+          <button onClick={() => setSyncError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium ml-4">Dismiss</button>
+        </div>
+      )}
 
       {view === "byPerson" ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
