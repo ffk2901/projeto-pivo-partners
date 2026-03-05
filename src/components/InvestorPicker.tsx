@@ -9,11 +9,13 @@ interface Props {
   onClose: () => void;
   investors: Investor[];
   excludeIds: Set<string>;
-  onSelect: (investorId: string) => void;
+  onSelect: (investorId: string) => Promise<void>;
 }
 
 export default function InvestorPicker({ open, onClose, investors, excludeIds, onSelect }: Props) {
   const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const available = useMemo(() => {
     return investors.filter((i) => !excludeIds.has(i.investor_id));
@@ -30,15 +32,36 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
     );
   }, [available, search]);
 
-  const handleSelect = (investorId: string) => {
-    onSelect(investorId);
+  const handleSelect = async (investorId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      await onSelect(investorId);
+      setSearch("");
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to add investor. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = () => {
+    if (loading) return;
     setSearch("");
+    setError(null);
     onClose();
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="Add Investor to Funnel">
+    <Modal open={open} onClose={handleClose} title="Add Investor to Funnel">
       <div className="space-y-4">
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         <div className="relative">
           <input
             type="text"
@@ -46,7 +69,8 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search investors by name, tags, or email..."
             autoFocus
-            className="w-full border border-brand-200 rounded-xl px-4 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 placeholder:text-ink-400"
+            disabled={loading}
+            className="w-full border border-brand-200 rounded-xl px-4 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 placeholder:text-ink-400 disabled:opacity-50"
           />
         </div>
 
@@ -56,7 +80,12 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
         </p>
 
         <div className="max-h-72 overflow-y-auto space-y-1 -mx-1 px-1">
-          {filtered.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="inline-block w-5 h-5 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin mb-2"></div>
+              <p className="text-sm text-ink-400">Adding investor...</p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="text-center py-8">
               <p className="text-sm text-ink-400">
                 {available.length === 0
@@ -69,7 +98,8 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
               <button
                 key={inv.investor_id}
                 onClick={() => handleSelect(inv.investor_id)}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-brand-100/60 transition-colors group"
+                disabled={loading}
+                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-brand-100/60 transition-colors group disabled:opacity-50"
               >
                 <div className="flex items-center justify-between">
                   <div>

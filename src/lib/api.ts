@@ -72,5 +72,26 @@ export function api() {
 
     // Config
     getConfig: () => fetchJson<{ config: import("@/types").ConfigRow[]; pipeline_stages: string[] }>("/api/config"),
+
+    // Team update
+    updateTeamMember: (d: Partial<import("@/types").TeamMember>) => put<import("@/types").TeamMember>("/api/team", d),
+
+    // Project Notes
+    getProjectNotes: (projectId?: string) => {
+      const url = projectId ? `/api/project-notes?project_id=${projectId}` : "/api/project-notes";
+      return fetchJson<import("@/types").ProjectNote[]>(url);
+    },
+    createProjectNote: (d: Partial<import("@/types").ProjectNote>) =>
+      post<import("@/types").ProjectNote>("/api/project-notes", d),
+    updateProjectNote: (d: Partial<import("@/types").ProjectNote>) =>
+      put<import("@/types").ProjectNote>("/api/project-notes", d),
+    deleteProjectNote: (noteId: string) =>
+      fetchJson<{ success: boolean }>(`/api/project-notes?note_id=${noteId}`, { method: "DELETE" }),
+
+    // Calendar Sync
+    syncTaskToCalendar: (taskId: string) =>
+      post<{ success: boolean; task: import("@/types").Task; eventId?: string }>("/api/calendar-sync", { task_id: taskId }),
+    unsyncTaskFromCalendar: (taskId: string) =>
+      post<{ success: boolean; task: import("@/types").Task }>("/api/calendar-sync", { task_id: taskId, action: "unsync" }),
   };
 }

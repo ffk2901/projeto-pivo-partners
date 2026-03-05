@@ -16,6 +16,7 @@ export default function TaskForm({ team, startups, initial, onSubmit, onCancel }
   const [startupId, setStartupId] = useState(initial?.startup_id || "");
   const [ownerId, setOwnerId] = useState(initial?.owner_id || "");
   const [dueDate, setDueDate] = useState(initial?.due_date || "");
+  const [dueTime, setDueTime] = useState(initial?.due_time || "");
   const [status, setStatus] = useState<string>(initial?.status || "todo");
   const [priority, setPriority] = useState<string>(initial?.priority || "medium");
   const [notes, setNotes] = useState(initial?.notes || "");
@@ -31,6 +32,7 @@ export default function TaskForm({ team, startups, initial, onSubmit, onCancel }
         startup_id: startupId,
         owner_id: ownerId,
         due_date: dueDate,
+        due_time: dueTime,
         status: status as Task["status"],
         priority: priority as Task["priority"],
         notes,
@@ -70,10 +72,14 @@ export default function TaskForm({ team, startups, initial, onSubmit, onCancel }
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
         <div>
           <label className="block text-sm font-medium text-ink-700 mb-1">Due Date</label>
           <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className={inputClass} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-ink-700 mb-1">Time</label>
+          <input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className={inputClass} />
         </div>
         <div>
           <label className="block text-sm font-medium text-ink-700 mb-1">Status</label>

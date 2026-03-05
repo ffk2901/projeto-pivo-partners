@@ -24,11 +24,14 @@ export async function POST(req: NextRequest) {
       title: body.title || "",
       owner_id: body.owner_id || "",
       due_date: body.due_date || "",
+      due_time: body.due_time || "",
       status: body.status || "todo",
       priority: body.priority || "medium",
       notes: body.notes || "",
       created_at: now,
       updated_at: now,
+      calendar_event_id: "",
+      sync_status: "none",
     };
     if (!task.title) {
       return NextResponse.json({ error: "title is required" }, { status: 400 });

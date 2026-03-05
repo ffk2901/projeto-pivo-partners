@@ -11,12 +11,14 @@ import type {
   ProjectInvestor,
   Investor,
   TeamMember,
+  ProjectNote,
 } from "@/types";
 import FunnelBoard from "@/components/FunnelBoard";
 import TasksTab from "@/components/TasksTab";
 import MaterialsTab from "@/components/MaterialsTab";
+import NotesTab from "@/components/NotesTab";
 
-type Tab = "pipeline" | "tasks" | "materials";
+type Tab = "pipeline" | "tasks" | "notes" | "materials";
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -31,13 +33,14 @@ export default function ProjectDetailPage() {
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [startups, setStartups] = useState<Startup[]>([]);
   const [stages, setStages] = useState<string[]>([]);
+  const [notes, setNotes] = useState<ProjectNote[]>([]);
   const [tab, setTab] = useState<Tab>("pipeline");
   const [loading, setLoading] = useState(true);
   const [showStartupTasks, setShowStartupTasks] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
-      const [allProjects, allStartups, allTasks, pi, inv, tm, cfg] =
+      const [allProjects, allStartups, allTasks, pi, inv, tm, cfg, pnotes] =
         await Promise.all([
           api().getProjects(),
           api().getStartups(),
@@ -46,6 +49,7 @@ export default function ProjectDetailPage() {
           api().getInvestors(),
           api().getTeam(),
           api().getConfig(),
+          api().getProjectNotes(projectId),
         ]);
 
       const proj = allProjects.find((p) => p.project_id === projectId) || null;
@@ -73,6 +77,7 @@ export default function ProjectDetailPage() {
       setInvestors(inv);
       setTeam(tm);
       setStages(cfg.pipeline_stages);
+      setNotes(pnotes);
     } catch (err) {
       console.error("Failed to load:", err);
     } finally {
@@ -123,6 +128,7 @@ export default function ProjectDetailPage() {
   const TABS: { key: Tab; label: string }[] = [
     { key: "pipeline", label: `Funnel (${piLinks.length})` },
     { key: "tasks", label: `Tasks (${openTaskCount})` },
+    { key: "notes", label: `Notes (${notes.length})` },
     { key: "materials", label: "Materials" },
   ];
 
@@ -203,6 +209,14 @@ export default function ProjectDetailPage() {
             onRefresh={loadData}
           />
         </div>
+      )}
+      {tab === "notes" && (
+        <NotesTab
+          projectId={projectId}
+          notes={notes}
+          team={team}
+          onRefresh={loadData}
+        />
       )}
       {tab === "materials" && startup && (
         <MaterialsTab startup={startup} onRefresh={loadData} />

@@ -5,6 +5,7 @@
 export interface TeamMember {
   team_id: string;
   name: string;
+  email: string;
 }
 
 export interface Startup {
@@ -37,9 +38,22 @@ export interface Task {
   title: string;
   owner_id: string;
   due_date: string; // YYYY-MM-DD
+  due_time: string; // HH:MM (24h)
   status: TaskStatus;
   priority: TaskPriority;
   notes: string;
+  created_at: string;
+  updated_at: string;
+  calendar_event_id: string;
+  sync_status: "none" | "pending" | "synced" | "failed";
+}
+
+export interface ProjectNote {
+  note_id: string;
+  project_id: string;
+  author_id: string;
+  title: string;
+  content: string;
   created_at: string;
   updated_at: string;
 }
