@@ -422,7 +422,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
 
   const [confirmRemove, setConfirmRemove] = useState(false);
 
-  const removeInvestor = useCallback((linkId: string) => {
+  const removeInvestor = useCallback(async (linkId: string) => {
     const currentLinks = optimisticLinks || links;
     const snapshotBeforeChange = currentLinks;
 
@@ -432,16 +432,23 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     setConfirmRemove(false);
 
     pendingSaves.current += 1;
-    api()
-      .deleteProjectInvestor(linkId)
-      .then(() => onRefresh())
-      .catch((err) => {
-        console.error("Failed to remove investor:", err);
-        setOptimisticLinks(snapshotBeforeChange);
-      })
-      .finally(() => {
-        pendingSaves.current -= 1;
-      });
+    try {
+      await api().deleteProjectInvestor(linkId);
+      // Delete succeeded — try refreshing data but never revert on refresh failure
+      try {
+        await onRefresh();
+      } catch (refreshErr) {
+        console.warn("Refresh after remove failed (investor was deleted):", refreshErr);
+      }
+      // Clear optimistic state so we show server data
+      setOptimisticLinks(null);
+    } catch (err) {
+      // Only revert if the DELETE itself failed
+      console.error("Failed to remove investor:", err);
+      setOptimisticLinks(snapshotBeforeChange);
+    } finally {
+      pendingSaves.current -= 1;
+    }
   }, [links, optimisticLinks, onRefresh]);
 
   const detailLink = displayLinks.find((l) => l.link_id === showDetail);
