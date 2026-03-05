@@ -403,6 +403,14 @@ export async function updateProjectInvestor(pi: ProjectInvestor): Promise<void> 
   invalidateCache("project_investors");
 }
 
+export async function deleteProjectInvestor(linkId: string): Promise<void> {
+  const rowNum = await findRowById(TAB.PROJECT_INVESTORS, linkId);
+  await updateRange(`${TAB.PROJECT_INVESTORS}!A${rowNum}:H${rowNum}`, [[
+    "", "", "", "", "", "", "", "",
+  ]]);
+  invalidateCache("project_investors");
+}
+
 // Startup-Investors (legacy / backward compat)
 export async function createStartupInvestor(si: StartupInvestor): Promise<void> {
   await appendRows(`${TAB.STARTUP_INVESTORS}!A:G`, [[
