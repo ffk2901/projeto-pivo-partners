@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -59,10 +59,8 @@ function InvestorCard({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition: transition || "transform 200ms ease",
-    opacity: isDragging ? 0 : 1,
-    // Reserve space for the dragged card so the column doesn't collapse
-    height: isDragging ? undefined : undefined,
+    transition,
+    opacity: isDragging ? 0.3 : 1,
   };
 
   return (
@@ -132,7 +130,6 @@ function StageColumn({
   const { setNodeRef } = useDroppable({ id: `stage:${stage}` });
   const getInvestor = (id: string) => investors.find((i) => i.investor_id === id);
 
-  // Stage-specific accent colors for column headers
   const stageAccent: Record<string, string> = {
     "Pipeline": "bg-brand-300/40 text-brand-700",
     "On Hold": "bg-amber-100 text-amber-700",
@@ -182,7 +179,7 @@ function StageColumn({
 // ── Overlay Card (while dragging) ──
 function DragOverlayCard({ link, investor }: { link: ProjectInvestor; investor?: Investor }) {
   return (
-    <div className="bg-surface-0 border-2 border-brand-500 rounded-xl p-3 shadow-lg w-64 opacity-90 rotate-[2deg] scale-105 transition-transform">
+    <div className="bg-surface-0 border-2 border-brand-500 rounded-xl p-3 shadow-lg w-64 opacity-90">
       <p className="text-sm font-medium text-ink-800">{investor?.investor_name || link.investor_id}</p>
       {investor?.tags && (
         <div className="flex flex-wrap gap-1 mt-1">
@@ -201,28 +198,6 @@ function resolveOverToStage(overId: string, links: ProjectInvestor[]): string | 
   return links.find((l) => l.link_id === overId)?.stage;
 }
 
-function applyStageMove(links: ProjectInvestor[], linkId: string, newStage: string): ProjectInvestor[] {
-  const stageCards = links.filter((l) => l.stage === newStage && l.link_id !== linkId);
-  const maxPos = stageCards.reduce((max, l) => Math.max(max, l.position_index), -1);
-  return links.map((l) =>
-    l.link_id === linkId
-      ? { ...l, stage: newStage, position_index: maxPos + 1, last_update: new Date().toISOString().split("T")[0] }
-      : l
-  );
-}
-
-/** Re-index position_index for all cards in a stage (0-based) */
-function reindexStage(links: ProjectInvestor[], stage: string): ProjectInvestor[] {
-  const stageCards = links
-    .filter((l) => l.stage === stage)
-    .sort((a, b) => a.position_index - b.position_index);
-  const indexMap = new Map(stageCards.map((c, i) => [c.link_id, i]));
-  return links.map((l) => {
-    const newIdx = indexMap.get(l.link_id);
-    return newIdx !== undefined ? { ...l, position_index: newIdx } : l;
-  });
-}
-
 // ── Main FunnelBoard ──
 export default function FunnelBoard({ projectId, links, investors, stages, onRefresh }: Props) {
   const [showPicker, setShowPicker] = useState(false);
@@ -230,27 +205,25 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
   const [editNotes, setEditNotes] = useState("");
   const [editNextAction, setEditNextAction] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [overStage, setOverStage] = useState<string | null>(null);
+  const [addError, setAddError] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
-  // Optimistic state — kept until next props arrive with fresh data
-  const [optimisticLinks, setOptimisticLinks] = useState<ProjectInvestor[] | null>(null);
-  const displayLinks = optimisticLinks || links;
+  // ── LOCAL STATE: the single source of truth for the board ──
+  // Initialized from props. Updated locally on drag/drop. Synced to server in background.
+  const [localLinks, setLocalLinks] = useState<ProjectInvestor[]>(links);
+  const busyRef = useRef(false); // true during drag or pending add/remove
 
-  // Track pending background saves to avoid clearing optimistic state prematurely
-  const pendingSaves = useRef(0);
-  // Track whether a drag is active to prevent refresh from clearing state mid-drag
-  const isDragging = useRef(false);
-
-  // When parent provides new links (from onRefresh), clear optimistic state if safe
-  const prevLinksRef = useRef(links);
-  if (links !== prevLinksRef.current) {
-    prevLinksRef.current = links;
-    if (pendingSaves.current === 0 && !isDragging.current) {
-      if (optimisticLinks !== null) setOptimisticLinks(null);
+  // Sync from props ONLY on initial load or when data structurally changes
+  // (e.g. new investors added externally). Never during active operations.
+  useEffect(() => {
+    if (!busyRef.current) {
+      setLocalLinks(links);
     }
-  }
+  }, [links]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor)
   );
 
@@ -259,150 +232,126 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
   const cardsByStage = useMemo(() => {
     return stages.map((stage) => ({
       stage,
-      cards: displayLinks
+      cards: localLinks
         .filter((l) => l.stage === stage)
         .sort((a, b) => a.position_index - b.position_index),
     }));
-  }, [stages, displayLinks]);
+  }, [stages, localLinks]);
 
-  const [overStage, setOverStage] = useState<string | null>(null);
-
-  // Fire-and-forget: persist change to server + background refresh. Revert on error.
-  const persistStageChange = useCallback((linkId: string, newStage: string, positionIndex: number, snapshotBeforeChange: ProjectInvestor[]) => {
-    pendingSaves.current += 1;
+  // ── Persist a single card update to the server (fire-and-forget, no refresh) ──
+  const persistToServer = useCallback((linkId: string, fields: Partial<ProjectInvestor>) => {
     api()
-      .updateProjectInvestor({ link_id: linkId, stage: newStage, position_index: positionIndex })
-      .then(() => onRefresh())
+      .updateProjectInvestor({ link_id: linkId, ...fields })
       .catch((err) => {
-        console.error("Failed to update stage:", err);
-        setOptimisticLinks(snapshotBeforeChange);
-      })
-      .finally(() => {
-        pendingSaves.current -= 1;
+        console.error("Failed to persist funnel change:", err);
       });
-  }, [onRefresh]);
+  }, []);
 
-  const persistReorder = useCallback((linkId: string, newIndex: number, snapshotBeforeChange: ProjectInvestor[]) => {
-    pendingSaves.current += 1;
-    api()
-      .updateProjectInvestor({ link_id: linkId, position_index: newIndex })
-      .then(() => onRefresh())
-      .catch((err) => {
-        console.error("Failed to reorder:", err);
-        setOptimisticLinks(snapshotBeforeChange);
-      })
-      .finally(() => {
-        pendingSaves.current -= 1;
-      });
-  }, [onRefresh]);
-
-  // Stage change via dropdown (on card or in detail modal)
+  // ── Stage change (dropdown or drag) ──
   const changeStage = useCallback((linkId: string, newStage: string) => {
-    const currentLinks = optimisticLinks || links;
-    const link = currentLinks.find((l) => l.link_id === linkId);
-    if (!link || link.stage === newStage) return;
+    setLocalLinks((prev) => {
+      const link = prev.find((l) => l.link_id === linkId);
+      if (!link || link.stage === newStage) return prev;
 
-    const snapshotBeforeChange = currentLinks;
-    const updated = applyStageMove(currentLinks, linkId, newStage);
-    setOptimisticLinks(updated);
+      const targetCards = prev.filter((l) => l.stage === newStage && l.link_id !== linkId);
+      const maxPos = targetCards.reduce((max, l) => Math.max(max, l.position_index), -1);
+      const newPos = maxPos + 1;
+      const today = new Date().toISOString().split("T")[0];
 
-    const movedCard = updated.find((l) => l.link_id === linkId)!;
-    persistStageChange(linkId, newStage, movedCard.position_index, snapshotBeforeChange);
-  }, [links, optimisticLinks, persistStageChange]);
+      // Persist to server
+      persistToServer(linkId, { stage: newStage, position_index: newPos });
+
+      return prev.map((l) =>
+        l.link_id === linkId
+          ? { ...l, stage: newStage, position_index: newPos, last_update: today }
+          : l
+      );
+    });
+  }, [persistToServer]);
+
+  // ── DRAG HANDLERS ──
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
-    isDragging.current = true;
+    busyRef.current = true;
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
     if (!over) { setOverStage(null); return; }
 
-    const currentLinks = optimisticLinks || links;
-    const targetStage = resolveOverToStage(over.id as string, currentLinks);
+    const targetStage = resolveOverToStage(over.id as string, localLinks);
     setOverStage(targetStage || null);
-
     if (!targetStage) return;
 
-    const activeLink = currentLinks.find((l) => l.link_id === active.id);
-    if (!activeLink) return;
+    const activeLink = localLinks.find((l) => l.link_id === active.id);
+    if (!activeLink || activeLink.stage === targetStage) return;
 
-    // Cross-column move: optimistically move card to target column
-    if (activeLink.stage !== targetStage) {
-      const updated = applyStageMove(currentLinks, active.id as string, targetStage);
-      setOptimisticLinks(updated);
-      return;
-    }
+    // Cross-column move: move card to new column immediately
+    setLocalLinks((prev) => {
+      // Guard: check again inside updater to avoid stale state
+      const current = prev.find((l) => l.link_id === active.id);
+      if (!current || current.stage === targetStage) return prev;
 
-    // Same-column reorder: provide visual feedback during drag
-    const overIsCard = !String(over.id).startsWith("stage:");
-    if (!overIsCard || active.id === over.id) return;
-
-    const stageCards = currentLinks
-      .filter((l) => l.stage === targetStage)
-      .sort((a, b) => a.position_index - b.position_index);
-
-    const oldIndex = stageCards.findIndex((c) => c.link_id === active.id);
-    const newIndex = stageCards.findIndex((c) => c.link_id === over.id);
-
-    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-      const reordered = arrayMove(stageCards, oldIndex, newIndex);
-      const updated = currentLinks.map((l) => {
-        if (l.stage !== targetStage) return l;
-        const idx = reordered.findIndex((c) => c.link_id === l.link_id);
-        return idx >= 0 ? { ...l, position_index: idx } : l;
-      });
-      setOptimisticLinks(updated);
-    }
+      const targetCards = prev.filter((l) => l.stage === targetStage && l.link_id !== (active.id as string));
+      const maxPos = targetCards.reduce((max, l) => Math.max(max, l.position_index), -1);
+      return prev.map((l) =>
+        l.link_id === active.id
+          ? { ...l, stage: targetStage, position_index: maxPos + 1, last_update: new Date().toISOString().split("T")[0] }
+          : l
+      );
+    });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
     setOverStage(null);
-    isDragging.current = false;
+    busyRef.current = false;
 
-    if (!over) {
-      // Dropped outside — revert to server state
-      setOptimisticLinks(null);
-      return;
-    }
+    if (!over) return;
 
-    const currentLinks = optimisticLinks || links;
-    const activeLink = currentLinks.find((l) => l.link_id === active.id);
+    const activeLink = localLinks.find((l) => l.link_id === active.id);
     if (!activeLink) return;
 
-    const targetStage = resolveOverToStage(over.id as string, currentLinks) || activeLink.stage;
+    const targetStage = resolveOverToStage(over.id as string, localLinks) || activeLink.stage;
+    const overIsCard = !String(over.id).startsWith("stage:");
 
-    const snapshotBeforeChange = links; // original server state for revert
-    const originalLink = links.find((l) => l.link_id === active.id);
-    const wasMovedCrossColumn = originalLink && originalLink.stage !== targetStage;
-
-    if (wasMovedCrossColumn) {
-      // Cross-column: card was already moved during dragOver, just persist
-      const movedCard = currentLinks.find((l) => l.link_id === active.id);
-      if (movedCard) {
-        persistStageChange(active.id as string, targetStage, movedCard.position_index, snapshotBeforeChange);
-      }
-    } else {
-      // Same-column: reorder was already applied in dragOver, persist if changed
-      const stageCards = currentLinks
+    // Same-column reorder
+    if (overIsCard && active.id !== over.id) {
+      const stageCards = localLinks
         .filter((l) => l.stage === targetStage)
         .sort((a, b) => a.position_index - b.position_index);
-      const newIndex = stageCards.findIndex((c) => c.link_id === active.id);
-      const originalIndex = links
-        .filter((l) => l.stage === targetStage)
-        .sort((a, b) => a.position_index - b.position_index)
-        .findIndex((c) => c.link_id === active.id);
 
-      if (newIndex !== -1 && newIndex !== originalIndex) {
-        persistReorder(active.id as string, newIndex, snapshotBeforeChange);
-      } else {
-        // No change — clear optimistic state
-        if (pendingSaves.current === 0) {
-          setOptimisticLinks(null);
-        }
+      const oldIndex = stageCards.findIndex((c) => c.link_id === active.id);
+      const newIndex = stageCards.findIndex((c) => c.link_id === over.id);
+
+      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+        const reordered = arrayMove(stageCards, oldIndex, newIndex);
+
+        setLocalLinks((prev) => prev.map((l) => {
+          if (l.stage !== targetStage) return l;
+          const idx = reordered.findIndex((c) => c.link_id === l.link_id);
+          return idx >= 0 ? { ...l, position_index: idx } : l;
+        }));
+
+        // Persist the moved card's new position
+        persistToServer(active.id as string, { position_index: newIndex });
+        return;
+      }
+    }
+
+    // Cross-column: already moved in handleDragOver — just persist
+    // Find the card in current localLinks to get the final stage and position
+    const movedCard = localLinks.find((l) => l.link_id === active.id);
+    if (movedCard) {
+      // Check if stage actually changed from original props
+      const originalLink = links.find((l) => l.link_id === active.id);
+      if (originalLink && originalLink.stage !== movedCard.stage) {
+        persistToServer(active.id as string, {
+          stage: movedCard.stage,
+          position_index: movedCard.position_index,
+        });
       }
     }
   };
@@ -410,25 +359,21 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
   const handleDragCancel = () => {
     setActiveId(null);
     setOverStage(null);
-    isDragging.current = false;
+    busyRef.current = false;
     // Revert to server state
-    if (pendingSaves.current === 0) {
-      setOptimisticLinks(null);
-    }
+    setLocalLinks(links);
   };
 
-  const [addError, setAddError] = useState<string | null>(null);
-
+  // ── Add investor ──
   const handleAddInvestor = async (investorId: string) => {
     setAddError(null);
+    busyRef.current = true;
 
-    // Optimistic: immediately add a card in the first stage
     const tempLinkId = `temp_${Date.now()}`;
     const firstStage = stages[0] || "Pipeline";
-    const currentLinks = optimisticLinks || links;
-    const stageCards = currentLinks.filter((l) => l.stage === firstStage);
+    const stageCards = localLinks.filter((l) => l.stage === firstStage);
     const maxPos = stageCards.reduce((max, l) => Math.max(max, l.position_index), -1);
-    const optimisticLink: ProjectInvestor = {
+    const tempLink: ProjectInvestor = {
       link_id: tempLinkId,
       project_id: projectId,
       investor_id: investorId,
@@ -438,23 +383,24 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
       next_action: "",
       notes: "",
     };
-    setOptimisticLinks([...currentLinks, optimisticLink]);
+    setLocalLinks((prev) => [...prev, tempLink]);
 
     try {
-      pendingSaves.current += 1;
-      await api().createProjectInvestor({ project_id: projectId, investor_id: investorId });
-      await onRefresh();
+      const created = await api().createProjectInvestor({ project_id: projectId, investor_id: investorId });
+      // Replace temp card with real server card
+      setLocalLinks((prev) => prev.map((l) => l.link_id === tempLinkId ? created : l));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add investor";
       setAddError(message);
-      setOptimisticLinks(null);
+      // Remove temp card
+      setLocalLinks((prev) => prev.filter((l) => l.link_id !== tempLinkId));
       throw err;
     } finally {
-      pendingSaves.current -= 1;
-      setOptimisticLinks(null);
+      busyRef.current = false;
     }
   };
 
+  // ── Detail modal ──
   const openDetail = (link: ProjectInvestor) => {
     setShowDetail(link.link_id);
     setEditNotes(link.notes);
@@ -464,50 +410,47 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
 
   const saveDetail = async () => {
     if (!showDetail) return;
-    await api().updateProjectInvestor({ link_id: showDetail, notes: editNotes, next_action: editNextAction });
+    try {
+      await api().updateProjectInvestor({ link_id: showDetail, notes: editNotes, next_action: editNextAction });
+      setLocalLinks((prev) => prev.map((l) =>
+        l.link_id === showDetail ? { ...l, notes: editNotes, next_action: editNextAction } : l
+      ));
+    } catch (err) {
+      console.error("Failed to save detail:", err);
+    }
     setShowDetail(null);
-    onRefresh();
   };
 
-  const [confirmRemove, setConfirmRemove] = useState(false);
-
+  // ── Remove investor ──
   const removeInvestor = useCallback(async (linkId: string) => {
-    const currentLinks = optimisticLinks || links;
-    const snapshotBeforeChange = currentLinks;
+    busyRef.current = true;
+    const backup = localLinks;
 
-    // Optimistic: remove immediately
-    setOptimisticLinks(currentLinks.filter((l) => l.link_id !== linkId));
+    setLocalLinks((prev) => prev.filter((l) => l.link_id !== linkId));
     setShowDetail(null);
     setConfirmRemove(false);
 
-    pendingSaves.current += 1;
     try {
       await api().deleteProjectInvestor(linkId);
-      try {
-        await onRefresh();
-      } catch (refreshErr) {
-        console.warn("Refresh after remove failed (investor was deleted):", refreshErr);
-      }
-      setOptimisticLinks(null);
     } catch (err) {
       console.error("Failed to remove investor:", err);
-      setOptimisticLinks(snapshotBeforeChange);
+      setLocalLinks(backup);
     } finally {
-      pendingSaves.current -= 1;
+      busyRef.current = false;
     }
-  }, [links, optimisticLinks, onRefresh]);
+  }, [localLinks]);
 
-  const detailLink = displayLinks.find((l) => l.link_id === showDetail);
+  const detailLink = localLinks.find((l) => l.link_id === showDetail);
   const detailInvestor = detailLink ? getInvestor(detailLink.investor_id) : null;
-  const activeLink = activeId ? displayLinks.find((l) => l.link_id === activeId) : null;
+  const activeLink = activeId ? localLinks.find((l) => l.link_id === activeId) : null;
   const activeInvestor = activeLink ? getInvestor(activeLink.investor_id) : null;
-  const existingInvestorIds = useMemo(() => new Set(displayLinks.map((l) => l.investor_id)), [displayLinks]);
+  const existingInvestorIds = useMemo(() => new Set(localLinks.map((l) => l.investor_id)), [localLinks]);
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm text-ink-500">
-          {displayLinks.length} investor{displayLinks.length !== 1 ? "s" : ""} in funnel
+          {localLinks.length} investor{localLinks.length !== 1 ? "s" : ""} in funnel
         </p>
         <button
           onClick={() => setShowPicker(true)}
@@ -524,7 +467,6 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
         </div>
       )}
 
-      {/* Kanban board with dnd-kit */}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -557,7 +499,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
         </DragOverlay>
       </DndContext>
 
-      {displayLinks.length === 0 && (
+      {localLinks.length === 0 && (
         <div className="mt-4 text-center py-12 bg-surface-50 rounded-2xl border border-dashed border-brand-300">
           <p className="text-ink-400 text-sm mb-2">No investors yet</p>
           <button
@@ -569,7 +511,6 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
         </div>
       )}
 
-      {/* Investor Picker */}
       <InvestorPicker
         open={showPicker}
         onClose={() => setShowPicker(false)}
@@ -578,7 +519,6 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
         onSelect={handleAddInvestor}
       />
 
-      {/* Detail modal */}
       <Modal open={!!showDetail} onClose={() => setShowDetail(null)} title={detailInvestor?.investor_name || "Investor Details"}>
         {detailLink && detailInvestor && (
           <div className="space-y-4">
