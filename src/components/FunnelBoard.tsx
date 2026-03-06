@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useCallback } from "react";
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -59,8 +59,10 @@ function InvestorCard({
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1,
+    transition: transition || "transform 200ms ease",
+    opacity: isDragging ? 0 : 1,
+    // Reserve space for the dragged card so the column doesn't collapse
+    height: isDragging ? undefined : undefined,
   };
 
   return (
@@ -69,7 +71,7 @@ function InvestorCard({
       style={style}
       {...attributes}
       {...listeners}
-      className="bg-surface-0 border border-brand-200/60 rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-brand-400 hover:shadow-sm transition-all group"
+      className="bg-surface-0 border border-brand-200/60 rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-brand-400 hover:shadow-sm transition-colors group"
     >
       <div className="flex items-start justify-between">
         <p
@@ -142,7 +144,7 @@ function StageColumn({
 
   return (
     <div
-      className={`flex-shrink-0 w-64 rounded-2xl border transition-colors ${
+      className={`flex-shrink-0 w-64 rounded-2xl border transition-colors duration-200 ${
         isOver ? "border-brand-500 bg-brand-100/40" : "border-brand-200/60 bg-surface-50"
       }`}
     >
@@ -180,7 +182,7 @@ function StageColumn({
 // ── Overlay Card (while dragging) ──
 function DragOverlayCard({ link, investor }: { link: ProjectInvestor; investor?: Investor }) {
   return (
-    <div className="bg-surface-0 border-2 border-brand-500 rounded-xl p-3 shadow-lg w-64 opacity-90">
+    <div className="bg-surface-0 border-2 border-brand-500 rounded-xl p-3 shadow-lg w-64 opacity-90 rotate-[2deg] scale-105 transition-transform">
       <p className="text-sm font-medium text-ink-800">{investor?.investor_name || link.investor_id}</p>
       {investor?.tags && (
         <div className="flex flex-wrap gap-1 mt-1">
@@ -209,6 +211,18 @@ function applyStageMove(links: ProjectInvestor[], linkId: string, newStage: stri
   );
 }
 
+/** Re-index position_index for all cards in a stage (0-based) */
+function reindexStage(links: ProjectInvestor[], stage: string): ProjectInvestor[] {
+  const stageCards = links
+    .filter((l) => l.stage === stage)
+    .sort((a, b) => a.position_index - b.position_index);
+  const indexMap = new Map(stageCards.map((c, i) => [c.link_id, i]));
+  return links.map((l) => {
+    const newIdx = indexMap.get(l.link_id);
+    return newIdx !== undefined ? { ...l, position_index: newIdx } : l;
+  });
+}
+
 // ── Main FunnelBoard ──
 export default function FunnelBoard({ projectId, links, investors, stages, onRefresh }: Props) {
   const [showPicker, setShowPicker] = useState(false);
@@ -223,19 +237,20 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
 
   // Track pending background saves to avoid clearing optimistic state prematurely
   const pendingSaves = useRef(0);
+  // Track whether a drag is active to prevent refresh from clearing state mid-drag
+  const isDragging = useRef(false);
 
-  // When parent provides new links (from onRefresh), clear optimistic state if no saves pending
+  // When parent provides new links (from onRefresh), clear optimistic state if safe
   const prevLinksRef = useRef(links);
   if (links !== prevLinksRef.current) {
     prevLinksRef.current = links;
-    if (pendingSaves.current === 0) {
-      // Fresh data arrived and nothing pending — trust server data
+    if (pendingSaves.current === 0 && !isDragging.current) {
       if (optimisticLinks !== null) setOptimisticLinks(null);
     }
   }
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor)
   );
 
@@ -260,7 +275,6 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
       .then(() => onRefresh())
       .catch((err) => {
         console.error("Failed to update stage:", err);
-        // Revert to snapshot before this change
         setOptimisticLinks(snapshotBeforeChange);
       })
       .finally(() => {
@@ -298,6 +312,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    isDragging.current = true;
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -311,19 +326,48 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     if (!targetStage) return;
 
     const activeLink = currentLinks.find((l) => l.link_id === active.id);
-    if (!activeLink || activeLink.stage === targetStage) return;
+    if (!activeLink) return;
 
-    // Optimistically move the card to the target column during the drag
-    const updated = applyStageMove(currentLinks, active.id as string, targetStage);
-    setOptimisticLinks(updated);
+    // Cross-column move: optimistically move card to target column
+    if (activeLink.stage !== targetStage) {
+      const updated = applyStageMove(currentLinks, active.id as string, targetStage);
+      setOptimisticLinks(updated);
+      return;
+    }
+
+    // Same-column reorder: provide visual feedback during drag
+    const overIsCard = !String(over.id).startsWith("stage:");
+    if (!overIsCard || active.id === over.id) return;
+
+    const stageCards = currentLinks
+      .filter((l) => l.stage === targetStage)
+      .sort((a, b) => a.position_index - b.position_index);
+
+    const oldIndex = stageCards.findIndex((c) => c.link_id === active.id);
+    const newIndex = stageCards.findIndex((c) => c.link_id === over.id);
+
+    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+      const reordered = arrayMove(stageCards, oldIndex, newIndex);
+      const updated = currentLinks.map((l) => {
+        if (l.stage !== targetStage) return l;
+        const idx = reordered.findIndex((c) => c.link_id === l.link_id);
+        return idx >= 0 ? { ...l, position_index: idx } : l;
+      });
+      setOptimisticLinks(updated);
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
     setOverStage(null);
+    isDragging.current = false;
 
-    if (!over) return;
+    if (!over) {
+      // Dropped outside — revert to server state
+      setOptimisticLinks(null);
+      return;
+    }
 
     const currentLinks = optimisticLinks || links;
     const activeLink = currentLinks.find((l) => l.link_id === active.id);
@@ -331,40 +375,45 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
 
     const targetStage = resolveOverToStage(over.id as string, currentLinks) || activeLink.stage;
 
-    // Compare against the original server state to detect cross-column moves,
-    // since handleDragOver already optimistically moved the card to the target column.
     const snapshotBeforeChange = links; // original server state for revert
     const originalLink = links.find((l) => l.link_id === active.id);
     const wasMovedCrossColumn = originalLink && originalLink.stage !== targetStage;
 
-    if (!wasMovedCrossColumn) {
-      // Same-column drop: check for reorder
-      const overIsCard = !String(over.id).startsWith("stage:");
-      if (!overIsCard) return; // dropped on column background, no reorder
-
-      const stageCards = currentLinks
-        .filter((l) => l.stage === targetStage)
-        .sort((a, b) => a.position_index - b.position_index);
-
-      const oldIndex = stageCards.findIndex((c) => c.link_id === active.id);
-      const newIndex = stageCards.findIndex((c) => c.link_id === over.id);
-
-      if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-        const reordered = arrayMove(stageCards, oldIndex, newIndex);
-        const updated = currentLinks.map((l) => {
-          if (l.stage !== targetStage) return l;
-          const idx = reordered.findIndex((c) => c.link_id === l.link_id);
-          return idx >= 0 ? { ...l, position_index: idx } : l;
-        });
-        setOptimisticLinks(updated);
-        persistReorder(active.id as string, newIndex, snapshotBeforeChange);
-      }
-    } else {
+    if (wasMovedCrossColumn) {
       // Cross-column: card was already moved during dragOver, just persist
       const movedCard = currentLinks.find((l) => l.link_id === active.id);
       if (movedCard) {
         persistStageChange(active.id as string, targetStage, movedCard.position_index, snapshotBeforeChange);
       }
+    } else {
+      // Same-column: reorder was already applied in dragOver, persist if changed
+      const stageCards = currentLinks
+        .filter((l) => l.stage === targetStage)
+        .sort((a, b) => a.position_index - b.position_index);
+      const newIndex = stageCards.findIndex((c) => c.link_id === active.id);
+      const originalIndex = links
+        .filter((l) => l.stage === targetStage)
+        .sort((a, b) => a.position_index - b.position_index)
+        .findIndex((c) => c.link_id === active.id);
+
+      if (newIndex !== -1 && newIndex !== originalIndex) {
+        persistReorder(active.id as string, newIndex, snapshotBeforeChange);
+      } else {
+        // No change — clear optimistic state
+        if (pendingSaves.current === 0) {
+          setOptimisticLinks(null);
+        }
+      }
+    }
+  };
+
+  const handleDragCancel = () => {
+    setActiveId(null);
+    setOverStage(null);
+    isDragging.current = false;
+    // Revert to server state
+    if (pendingSaves.current === 0) {
+      setOptimisticLinks(null);
     }
   };
 
@@ -434,16 +483,13 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
     pendingSaves.current += 1;
     try {
       await api().deleteProjectInvestor(linkId);
-      // Delete succeeded — try refreshing data but never revert on refresh failure
       try {
         await onRefresh();
       } catch (refreshErr) {
         console.warn("Refresh after remove failed (investor was deleted):", refreshErr);
       }
-      // Clear optimistic state so we show server data
       setOptimisticLinks(null);
     } catch (err) {
-      // Only revert if the DELETE itself failed
       console.error("Failed to remove investor:", err);
       setOptimisticLinks(snapshotBeforeChange);
     } finally {
@@ -481,10 +527,11 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
       {/* Kanban board with dnd-kit */}
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
         <div className="flex gap-3 overflow-x-auto pb-4 funnel-scroll">
           {cardsByStage.map(({ stage, cards }) => (
@@ -500,7 +547,10 @@ export default function FunnelBoard({ projectId, links, investors, stages, onRef
             />
           ))}
         </div>
-        <DragOverlay>
+        <DragOverlay dropAnimation={{
+          duration: 200,
+          easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)",
+        }}>
           {activeLink && (
             <DragOverlayCard link={activeLink} investor={activeInvestor || undefined} />
           )}

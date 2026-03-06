@@ -82,15 +82,29 @@ export async function PUT(req: NextRequest) {
     if (!existing) {
       return NextResponse.json({ error: `Link "${body.link_id}" not found` }, { status: 404 });
     }
+    const stageChanged = body.stage && body.stage !== existing.stage;
     const updated: ProjectInvestor = {
       ...existing,
       ...body,
       position_index: body.position_index !== undefined ? body.position_index : existing.position_index,
-      last_update: body.stage && body.stage !== existing.stage
+      last_update: stageChanged
         ? new Date().toISOString().split("T")[0]
         : (body.last_update || existing.last_update),
     };
     await updateProjectInvestor(updated);
+
+    // When a card moves between stages, re-index the source stage to close gaps
+    if (stageChanged) {
+      const sourceCards = all
+        .filter((pi) => pi.project_id === existing.project_id && pi.stage === existing.stage && pi.link_id !== existing.link_id)
+        .sort((a, b) => a.position_index - b.position_index);
+      for (let i = 0; i < sourceCards.length; i++) {
+        if (sourceCards[i].position_index !== i) {
+          await updateProjectInvestor({ ...sourceCards[i], position_index: i });
+        }
+      }
+    }
+
     return NextResponse.json(updated);
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
