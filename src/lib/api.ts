@@ -50,7 +50,7 @@ export function api() {
     createInvestor: (d: Partial<import("@/types").Investor>) => post<import("@/types").Investor>("/api/investors", d),
     updateInvestor: (d: Partial<import("@/types").Investor>) => put<import("@/types").Investor>("/api/investors", d),
 
-    // Project-Investors (replaces startup-investors)
+    // Project-Investors
     getProjectInvestors: (projectId?: string) => {
       const url = projectId ? `/api/project-investors?project_id=${projectId}` : "/api/project-investors";
       return fetchJson<import("@/types").ProjectInvestor[]>(url);
@@ -79,8 +79,12 @@ export function api() {
     updateTeamMember: (d: Partial<import("@/types").TeamMember>) => put<import("@/types").TeamMember>("/api/team", d),
 
     // Project Notes
-    getProjectNotes: (projectId?: string) => {
-      const url = projectId ? `/api/project-notes?project_id=${projectId}` : "/api/project-notes";
+    getProjectNotes: (projectId?: string, investorId?: string) => {
+      const params = new URLSearchParams();
+      if (projectId) params.set("project_id", projectId);
+      if (investorId) params.set("investor_id", investorId);
+      const qs = params.toString();
+      const url = qs ? `/api/project-notes?${qs}` : "/api/project-notes";
       return fetchJson<import("@/types").ProjectNote[]>(url);
     },
     createProjectNote: (d: Partial<import("@/types").ProjectNote>) =>
@@ -89,6 +93,36 @@ export function api() {
       put<import("@/types").ProjectNote>("/api/project-notes", d),
     deleteProjectNote: (noteId: string) =>
       fetchJson<{ success: boolean }>(`/api/project-notes?note_id=${noteId}`, { method: "DELETE" }),
+
+    // Meetings
+    getMeetings: (projectId?: string, investorId?: string) => {
+      const params = new URLSearchParams();
+      if (projectId) params.set("project_id", projectId);
+      if (investorId) params.set("investor_id", investorId);
+      const qs = params.toString();
+      const url = qs ? `/api/meetings?${qs}` : "/api/meetings";
+      return fetchJson<import("@/types").Meeting[]>(url);
+    },
+    createMeeting: (d: Partial<import("@/types").Meeting>) =>
+      post<import("@/types").Meeting>("/api/meetings", d),
+    updateMeeting: (d: Partial<import("@/types").Meeting>) =>
+      put<import("@/types").Meeting>("/api/meetings", d),
+    deleteMeeting: (meetingId: string) =>
+      fetchJson<{ success: boolean }>(`/api/meetings?meeting_id=${meetingId}`, { method: "DELETE" }),
+
+    // Activity Log
+    getActivityLog: (projectId?: string, investorId?: string) => {
+      const params = new URLSearchParams();
+      if (projectId) params.set("project_id", projectId);
+      if (investorId) params.set("investor_id", investorId);
+      const qs = params.toString();
+      const url = qs ? `/api/activity-log?${qs}` : "/api/activity-log";
+      return fetchJson<import("@/types").ActivityLogEntry[]>(url);
+    },
+
+    // Meeting Report
+    getMeetingReport: (projectId: string) =>
+      fetchJson<Record<string, unknown>>(`/api/meeting-report?project_id=${projectId}`),
 
     // Calendar Sync
     syncTaskToCalendar: (taskId: string) =>

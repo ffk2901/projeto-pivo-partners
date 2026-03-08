@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getProjectInvestors, createProjectInvestor, updateProjectInvestor,
-  deleteProjectInvestor, generateId, getPipelineStages,
+  deleteProjectInvestor, generateId, getPipelineStages, createActivityLog,
 } from "@/lib/sheets";
 import type { ProjectInvestor } from "@/types";
 
@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       (pi) => pi.project_id === body.project_id && pi.stage === stage
     );
     const maxPos = stageCards.reduce((max, pi) => Math.max(max, pi.position_index), -1);
+    const now = new Date().toISOString();
 
     const pi: ProjectInvestor = {
       link_id: generateId("pi"),
@@ -54,11 +55,37 @@ export async function POST(req: NextRequest) {
       investor_id: body.investor_id,
       stage,
       position_index: maxPos + 1,
-      last_update: new Date().toISOString().split("T")[0],
-      next_action: body.next_action || "",
+      owner_id: body.owner_id || "",
+      priority: body.priority || "",
+      last_interaction_date: "",
+      last_interaction_type: "",
+      next_step: body.next_step || body.next_action || "",
+      follow_up_date: body.follow_up_date || "",
+      latest_update: "",
+      fit_summary: body.fit_summary || "",
+      source: body.source || "",
+      last_update: now.split("T")[0],
+      next_action: body.next_action || body.next_step || "",
       notes: body.notes || "",
+      created_at: now,
+      updated_at: now,
     };
     await createProjectInvestor(pi);
+
+    // Log activity
+    try {
+      await createActivityLog({
+        activity_id: generateId("act"),
+        project_id: body.project_id,
+        investor_id: body.investor_id,
+        activity_type: "investor_added",
+        description: `Investor added to funnel in stage "${stage}"`,
+        metadata: "",
+        created_at: now,
+        created_by: body.owner_id || "",
+      });
+    } catch { /* non-critical */ }
+
     return NextResponse.json(pi, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
@@ -83,13 +110,18 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: `Link "${body.link_id}" not found` }, { status: 404 });
     }
     const stageChanged = body.stage && body.stage !== existing.stage;
+    const now = new Date().toISOString();
     const updated: ProjectInvestor = {
       ...existing,
       ...body,
       position_index: body.position_index !== undefined ? body.position_index : existing.position_index,
       last_update: stageChanged
-        ? new Date().toISOString().split("T")[0]
+        ? now.split("T")[0]
         : (body.last_update || existing.last_update),
+      updated_at: now,
+      // Keep next_step and next_action in sync
+      next_step: body.next_step !== undefined ? body.next_step : (body.next_action !== undefined ? body.next_action : existing.next_step),
+      next_action: body.next_action !== undefined ? body.next_action : (body.next_step !== undefined ? body.next_step : existing.next_action),
     };
     await updateProjectInvestor(updated);
 
@@ -103,6 +135,20 @@ export async function PUT(req: NextRequest) {
           await updateProjectInvestor({ ...sourceCards[i], position_index: i });
         }
       }
+
+      // Log stage change activity
+      try {
+        await createActivityLog({
+          activity_id: generateId("act"),
+          project_id: existing.project_id,
+          investor_id: existing.investor_id,
+          activity_type: "stage_change",
+          description: `Stage changed from "${existing.stage}" to "${body.stage}"`,
+          metadata: JSON.stringify({ from: existing.stage, to: body.stage }),
+          created_at: now,
+          created_by: body.owner_id || existing.owner_id || "",
+        });
+      } catch { /* non-critical */ }
     }
 
     return NextResponse.json(updated);

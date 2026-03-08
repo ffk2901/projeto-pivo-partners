@@ -12,13 +12,16 @@ import type {
   Investor,
   TeamMember,
   ProjectNote,
+  Meeting,
 } from "@/types";
 import FunnelBoard from "@/components/FunnelBoard";
 import TasksTab from "@/components/TasksTab";
 import MaterialsTab from "@/components/MaterialsTab";
-import NotesTab from "@/components/NotesTab";
+import NotesTable from "@/components/NotesTable";
+import MeetingReportTab from "@/components/MeetingReportTab";
+import Investor360Drawer from "@/components/Investor360Drawer";
 
-type Tab = "pipeline" | "tasks" | "notes" | "materials";
+type Tab = "pipeline" | "tasks" | "notes" | "materials" | "report";
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -34,13 +37,18 @@ export default function ProjectDetailPage() {
   const [startups, setStartups] = useState<Startup[]>([]);
   const [stages, setStages] = useState<string[]>([]);
   const [notes, setNotes] = useState<ProjectNote[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [tab, setTab] = useState<Tab>("pipeline");
   const [loading, setLoading] = useState(true);
   const [showStartupTasks, setShowStartupTasks] = useState(false);
 
+  // Investor 360 Drawer state
+  const [drawerLink, setDrawerLink] = useState<ProjectInvestor | null>(null);
+  const [drawerInvestor, setDrawerInvestor] = useState<Investor | null>(null);
+
   const loadData = useCallback(async () => {
     try {
-      const [allProjects, allStartups, allTasks, pi, inv, tm, cfg, pnotes] =
+      const [allProjects, allStartups, allTasks, pi, inv, tm, cfg, pnotes, mtgs] =
         await Promise.all([
           api().getProjects(),
           api().getStartups(),
@@ -50,6 +58,7 @@ export default function ProjectDetailPage() {
           api().getTeam(),
           api().getConfig(),
           api().getProjectNotes(projectId),
+          api().getMeetings(projectId),
         ]);
 
       const proj = allProjects.find((p) => p.project_id === projectId) || null;
@@ -78,16 +87,36 @@ export default function ProjectDetailPage() {
       setTeam(tm);
       setStages(cfg.pipeline_stages);
       setNotes(pnotes);
+      setMeetings(mtgs);
+
+      // Update drawer link if it's open (to reflect latest data)
+      if (drawerLink) {
+        const updatedLink = pi.find((l) => l.link_id === drawerLink.link_id);
+        if (updatedLink) {
+          setDrawerLink(updatedLink);
+        }
+      }
     } catch (err) {
       console.error("Failed to load:", err);
     } finally {
       setLoading(false);
     }
-  }, [projectId, showStartupTasks]);
+  }, [projectId, showStartupTasks, drawerLink]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const handleOpenDrawer = useCallback((link: ProjectInvestor) => {
+    const investor = investors.find((i) => i.investor_id === link.investor_id) || null;
+    setDrawerLink(link);
+    setDrawerInvestor(investor);
+  }, [investors]);
+
+  const handleCloseDrawer = useCallback(() => {
+    setDrawerLink(null);
+    setDrawerInvestor(null);
+  }, []);
 
   if (loading) {
     return (
@@ -130,6 +159,7 @@ export default function ProjectDetailPage() {
     { key: "tasks", label: `Tasks (${openTaskCount})` },
     { key: "notes", label: `Notes (${notes.length})` },
     { key: "materials", label: "Materials" },
+    { key: "report", label: "Meeting Report" },
   ];
 
   return (
@@ -185,7 +215,12 @@ export default function ProjectDetailPage() {
           links={piLinks}
           investors={investors}
           stages={stages}
+          team={team}
+          notes={notes}
+          tasks={tasks}
+          meetings={meetings}
           onRefresh={loadData}
+          onOpenDrawer={handleOpenDrawer}
         />
       )}
       {tab === "tasks" && (
@@ -211,15 +246,35 @@ export default function ProjectDetailPage() {
         </div>
       )}
       {tab === "notes" && (
-        <NotesTab
+        <NotesTable
           projectId={projectId}
           notes={notes}
           team={team}
+          investors={investors}
+          piLinks={piLinks}
+          meetings={meetings}
           onRefresh={loadData}
         />
       )}
       {tab === "materials" && startup && (
         <MaterialsTab startup={startup} onRefresh={loadData} />
+      )}
+      {tab === "report" && (
+        <MeetingReportTab projectId={projectId} />
+      )}
+
+      {/* Investor 360 Drawer */}
+      {drawerLink && drawerInvestor && (
+        <Investor360Drawer
+          open={!!drawerLink}
+          onClose={handleCloseDrawer}
+          link={drawerLink}
+          investor={drawerInvestor}
+          projectId={projectId}
+          stages={stages}
+          team={team}
+          onRefresh={loadData}
+        />
       )}
     </div>
   );
