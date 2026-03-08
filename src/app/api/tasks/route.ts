@@ -1,22 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTasks, createTask, updateTask, getTeam, generateId } from "@/lib/sheets";
+import { getTasks, createTask, updateTask, getTeam, generateId, createActivityLog } from "@/lib/sheets";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/calendar";
 import type { Task } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Attempt to auto-sync a task to Google Calendar.
- * Requires the task to have a due_date and an owner with an email.
- * Returns the updated calendar fields (calendar_event_id, sync_status).
- * Never throws — on failure it returns sync_status: "failed".
- */
 async function autoSyncToCalendar(
   task: Task,
   options?: { forceDelete?: boolean }
 ): Promise<Pick<Task, "calendar_event_id" | "sync_status">> {
   try {
-    // If the task lost its due_date or is done, remove the calendar event
     if (!task.due_date || task.status === "done" || options?.forceDelete) {
       if (task.calendar_event_id) {
         try {
@@ -28,7 +21,6 @@ async function autoSyncToCalendar(
       return { calendar_event_id: "", sync_status: "none" };
     }
 
-    // Need an owner with an email to create/update events
     if (!task.owner_id) {
       return { calendar_event_id: task.calendar_event_id, sync_status: task.sync_status };
     }
@@ -36,7 +28,6 @@ async function autoSyncToCalendar(
     const team = await getTeam();
     const owner = team.find((m) => m.team_id === task.owner_id);
     if (!owner?.email) {
-      // No email configured — skip silently, don't mark as failed
       return { calendar_event_id: task.calendar_event_id, sync_status: task.sync_status };
     }
 
@@ -50,10 +41,8 @@ async function autoSyncToCalendar(
 
     let result;
     if (task.calendar_event_id) {
-      // Update existing event
       result = await updateCalendarEvent(task.calendar_event_id, eventInput);
     } else {
-      // Create new event
       result = await createCalendarEvent(eventInput);
     }
 
@@ -81,6 +70,7 @@ export async function POST(req: NextRequest) {
       task_id: generateId("tsk"),
       startup_id: body.startup_id || "",
       project_id: body.project_id || "",
+      investor_id: body.investor_id || "",
       title: body.title || "",
       owner_id: body.owner_id || "",
       due_date: body.due_date || "",
@@ -97,13 +87,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "title is required" }, { status: 400 });
     }
 
-    // Auto-sync to Google Calendar if the task has a due date and owner
     if (task.due_date && task.owner_id && task.status !== "done") {
       const calFields = await autoSyncToCalendar(task);
       task = { ...task, ...calFields };
     }
 
     await createTask(task);
+
+    // Log activity if task is linked to an investor
+    if (task.investor_id && task.project_id) {
+      try {
+        await createActivityLog({
+          activity_id: generateId("act"),
+          project_id: task.project_id,
+          investor_id: task.investor_id,
+          activity_type: "task_created",
+          description: `Task created: "${task.title}"`,
+          metadata: "",
+          created_at: now,
+          created_by: task.owner_id,
+        });
+      } catch { /* non-critical */ }
+    }
+
     return NextResponse.json(task, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
@@ -123,7 +129,6 @@ export async function PUT(req: NextRequest) {
     }
     let updated: Task = { ...existing, ...body, updated_at: new Date().toISOString() };
 
-    // Determine if calendar-relevant fields changed
     const calFieldsChanged =
       updated.due_date !== existing.due_date ||
       updated.due_time !== existing.due_time ||
@@ -138,6 +143,23 @@ export async function PUT(req: NextRequest) {
     }
 
     await updateTask(updated);
+
+    // Log task completion activity
+    if (updated.status === "done" && existing.status !== "done" && updated.investor_id && updated.project_id) {
+      try {
+        await createActivityLog({
+          activity_id: generateId("act"),
+          project_id: updated.project_id,
+          investor_id: updated.investor_id,
+          activity_type: "task_completed",
+          description: `Task completed: "${updated.title}"`,
+          metadata: "",
+          created_at: updated.updated_at,
+          created_by: updated.owner_id,
+        });
+      } catch { /* non-critical */ }
+    }
+
     return NextResponse.json(updated);
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Unknown error" }, { status: 500 });
