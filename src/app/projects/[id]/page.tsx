@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
@@ -45,6 +45,7 @@ export default function ProjectDetailPage() {
   // Investor 360 Drawer state
   const [drawerLink, setDrawerLink] = useState<ProjectInvestor | null>(null);
   const [drawerInvestor, setDrawerInvestor] = useState<Investor | null>(null);
+  const drawerLinkRef = useRef<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -90,10 +91,12 @@ export default function ProjectDetailPage() {
       setMeetings(mtgs);
 
       // Update drawer link if it's open (to reflect latest data)
-      if (drawerLink) {
-        const updatedLink = pi.find((l) => l.link_id === drawerLink.link_id);
+      if (drawerLinkRef.current) {
+        const updatedLink = pi.find((l) => l.link_id === drawerLinkRef.current);
         if (updatedLink) {
           setDrawerLink(updatedLink);
+          const updatedInvestor = inv.find((i) => i.investor_id === updatedLink.investor_id);
+          if (updatedInvestor) setDrawerInvestor(updatedInvestor);
         }
       }
     } catch (err) {
@@ -101,7 +104,7 @@ export default function ProjectDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [projectId, showStartupTasks, drawerLink]);
+  }, [projectId, showStartupTasks]);
 
   useEffect(() => {
     loadData();
@@ -109,11 +112,13 @@ export default function ProjectDetailPage() {
 
   const handleOpenDrawer = useCallback((link: ProjectInvestor) => {
     const investor = investors.find((i) => i.investor_id === link.investor_id) || null;
+    drawerLinkRef.current = link.link_id;
     setDrawerLink(link);
     setDrawerInvestor(investor);
   }, [investors]);
 
   const handleCloseDrawer = useCallback(() => {
+    drawerLinkRef.current = null;
     setDrawerLink(null);
     setDrawerInvestor(null);
   }, []);

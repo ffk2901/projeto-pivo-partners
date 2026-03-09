@@ -68,18 +68,21 @@ export default function Investor360Drawer({
 
   const [saving, setSaving] = useState(false);
 
+  const investorId = link?.investor_id;
+  const linkId = link?.link_id;
+
   const loadInvestorData = useCallback(async () => {
-    if (!open || !link) return;
+    if (!open || !investorId) return;
     setLoading(true);
     try {
       const [n, t, m, a] = await Promise.all([
-        api().getProjectNotes(projectId, link.investor_id),
+        api().getProjectNotes(projectId, investorId),
         api().getTasks(),
-        api().getMeetings(projectId, link.investor_id),
-        api().getActivityLog(projectId, link.investor_id),
+        api().getMeetings(projectId, investorId),
+        api().getActivityLog(projectId, investorId),
       ]);
       setNotes(n);
-      setTasks(t.filter((task) => task.project_id === projectId && task.investor_id === link.investor_id));
+      setTasks(t.filter((task) => task.project_id === projectId && task.investor_id === investorId));
       setMeetings(m);
       setActivity(a);
     } catch (err) {
@@ -87,7 +90,7 @@ export default function Investor360Drawer({
     } finally {
       setLoading(false);
     }
-  }, [open, link, projectId]);
+  }, [open, investorId, projectId]);
 
   useEffect(() => {
     loadInvestorData();
