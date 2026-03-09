@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getProjectNotes, createProjectNote, updateProjectNote, deleteProjectNote,
   generateId, createActivityLog,
-} from "@/lib/sheets";
+} from "@/lib/db";
 import type { ProjectNote } from "@/types";
 
 export const dynamic = "force-dynamic";

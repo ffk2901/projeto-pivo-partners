@@ -5,7 +5,7 @@ import {
   updateStartupInvestor,
   generateId,
   getPipelineStages,
-} from "@/lib/sheets";
+} from "@/lib/db";
 import type { StartupInvestor } from "@/types";
 
 export const dynamic = "force-dynamic";

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getMeetings, createMeeting, updateMeeting, deleteMeeting,
   generateId, createActivityLog,
-} from "@/lib/sheets";
+} from "@/lib/db";
 import type { Meeting } from "@/types";
 
 export const dynamic = "force-dynamic";

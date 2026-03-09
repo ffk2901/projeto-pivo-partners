@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getProjectInvestors, getInvestors, getProjectNotes, getTasks,
   getMeetings, getProjects, getStartups, getTeam,
-} from "@/lib/sheets";
+} from "@/lib/db";
 import { getFollowUpStatus, getStalledStatus, FOLLOW_UP_STATUS_CONFIG } from "@/types";
 import * as XLSX from "xlsx";
 

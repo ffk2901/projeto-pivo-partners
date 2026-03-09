@@ -4,7 +4,7 @@ import {
   createInvestor,
   updateInvestor,
   generateId,
-} from "@/lib/sheets";
+} from "@/lib/db";
 import type { Investor } from "@/types";
 
 export const dynamic = "force-dynamic";

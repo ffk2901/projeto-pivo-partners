@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getActivityLog } from "@/lib/sheets";
+import { getActivityLog } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
