@@ -1,5 +1,5 @@
 // ============================================
-// Data types matching Google Sheets tab columns
+// Data types matching Supabase table columns
 // ============================================
 
 export interface TeamMember {
@@ -91,20 +91,42 @@ export interface ProjectInvestor {
   notes: string;
 }
 
-// Keep for backward compat / migration
-export interface StartupInvestor {
-  link_id: string;
-  startup_id: string;
-  investor_id: string;
-  stage: string;
-  last_update: string;
-  next_action: string;
-  notes: string;
-}
-
 export interface ConfigRow {
   key: string;
   value: string;
+}
+
+// Investor-specific notes (DB table exists, API coming later)
+export interface InvestorNote {
+  note_id: string;
+  investor_id: string;
+  project_id: string;
+  author_id: string;
+  title: string;
+  content: string;
+  note_type: string;
+  meeting_id: string;
+  task_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Meetings (DB table exists, API coming later)
+export interface Meeting {
+  meeting_id: string;
+  project_id: string;
+  investor_id: string;
+  title: string;
+  meeting_date: string;
+  meeting_time: string;
+  participants: string;
+  status: string;
+  source: string;
+  summary: string;
+  next_steps: string;
+  calendar_event_id: string;
+  created_at: string;
+  updated_at: string;
 }
 
 // ============================================

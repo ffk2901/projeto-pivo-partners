@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTasks, createTask, updateTask, getTeam, generateId } from "@/lib/sheets";
+import { getTasks, createTask, updateTask, getTeam, generateId } from "@/lib/db";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/calendar";
 import type { Task } from "@/types";
 

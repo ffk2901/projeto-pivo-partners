@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjects, createProject, updateProject, generateId } from "@/lib/sheets";
+import { getProjects, createProject, updateProject, generateId } from "@/lib/db";
 import type { Project } from "@/types";
 
 export const dynamic = "force-dynamic";

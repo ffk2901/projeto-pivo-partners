@@ -4,7 +4,7 @@ import {
   createStartup,
   updateStartup,
   generateId,
-} from "@/lib/sheets";
+} from "@/lib/db";
 import type { Startup } from "@/types";
 
 export const dynamic = "force-dynamic";

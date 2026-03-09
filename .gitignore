@@ -24,5 +24,8 @@ npm-debug.log*
 # typescript
 *.tsbuildinfo
 
+# migration data (CSV exports)
+/migration-data
+
 # Windows reserved device names
 nul

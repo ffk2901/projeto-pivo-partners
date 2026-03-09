@@ -62,16 +62,6 @@ export function api() {
     deleteProjectInvestor: (linkId: string) =>
       fetchJson<{ success: boolean }>(`/api/project-investors?link_id=${linkId}`, { method: "DELETE" }),
 
-    // Startup-Investors (legacy)
-    getStartupInvestors: (startupId?: string) => {
-      const url = startupId ? `/api/startup-investors?startup_id=${startupId}` : "/api/startup-investors";
-      return fetchJson<import("@/types").StartupInvestor[]>(url);
-    },
-    createStartupInvestor: (d: Partial<import("@/types").StartupInvestor>) =>
-      post<import("@/types").StartupInvestor>("/api/startup-investors", d),
-    updateStartupInvestor: (d: Partial<import("@/types").StartupInvestor>) =>
-      put<import("@/types").StartupInvestor>("/api/startup-investors", d),
-
     // Config
     getConfig: () => fetchJson<{ config: import("@/types").ConfigRow[]; pipeline_stages: string[] }>("/api/config"),
 

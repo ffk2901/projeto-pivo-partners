@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getProjectInvestors, createProjectInvestor, updateProjectInvestor,
   deleteProjectInvestor, generateId, getPipelineStages,
-} from "@/lib/sheets";
+} from "@/lib/db";
 import type { ProjectInvestor } from "@/types";
 
 export const dynamic = "force-dynamic";
