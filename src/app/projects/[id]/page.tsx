@@ -90,18 +90,17 @@ export default function ProjectDetailPage() {
       setMeetings(mtgs);
 
       // Update drawer link if it's open (to reflect latest data)
-      if (drawerLink) {
-        const updatedLink = pi.find((l) => l.link_id === drawerLink.link_id);
-        if (updatedLink) {
-          setDrawerLink(updatedLink);
-        }
-      }
+      setDrawerLink((prev) => {
+        if (!prev) return null;
+        const updatedLink = pi.find((l) => l.link_id === prev.link_id);
+        return updatedLink || prev;
+      });
     } catch (err) {
       console.error("Failed to load:", err);
     } finally {
       setLoading(false);
     }
-  }, [projectId, showStartupTasks, drawerLink]);
+  }, [projectId, showStartupTasks]);
 
   useEffect(() => {
     loadData();
