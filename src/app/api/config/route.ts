@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getConfig, getPipelineStages } from "@/lib/sheets";
+import { getConfig, getPipelineStages } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 

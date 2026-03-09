@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTasks, updateTask, getTeam } from "@/lib/sheets";
+import { getTasks, updateTask, getTeam } from "@/lib/db";
 import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/calendar";
 
 export const dynamic = "force-dynamic";

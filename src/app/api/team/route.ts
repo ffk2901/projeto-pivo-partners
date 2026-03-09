@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeam, updateTeamMember } from "@/lib/sheets";
+import { getTeam, updateTeamMember } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
