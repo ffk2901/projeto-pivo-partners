@@ -50,6 +50,22 @@ export function invalidateCache(prefix?: string): void {
 }
 
 // ============================================
+// Null → "" sanitizer (Supabase returns null, app expects "")
+// ============================================
+
+function sanitizeRows<T>(rows: T[]): T[] {
+  return rows.map((row) => {
+    const out = { ...row } as Record<string, unknown>;
+    for (const key of Object.keys(out)) {
+      if (out[key] === null || out[key] === undefined) {
+        out[key] = "";
+      }
+    }
+    return out as T;
+  });
+}
+
+// ============================================
 // READ operations
 // ============================================
 
@@ -57,7 +73,7 @@ export async function getTeam(): Promise<TeamMember[]> {
   const k = "team"; const c = getCached<TeamMember[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("team").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as TeamMember[];
+  const result = sanitizeRows((data || []) as TeamMember[]);
   setCache(k, result);
   return result;
 }
@@ -66,7 +82,7 @@ export async function getStartups(): Promise<Startup[]> {
   const k = "startups"; const c = getCached<Startup[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("startups").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as Startup[];
+  const result = sanitizeRows((data || []) as Startup[]);
   setCache(k, result);
   return result;
 }
@@ -75,7 +91,7 @@ export async function getProjects(): Promise<Project[]> {
   const k = "projects"; const c = getCached<Project[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("projects").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as Project[];
+  const result = sanitizeRows((data || []) as Project[]);
   setCache(k, result);
   return result;
 }
@@ -84,7 +100,7 @@ export async function getTasks(): Promise<Task[]> {
   const k = "tasks"; const c = getCached<Task[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("tasks").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as Task[];
+  const result = sanitizeRows((data || []) as Task[]);
   setCache(k, result);
   return result;
 }
@@ -93,7 +109,7 @@ export async function getInvestors(): Promise<Investor[]> {
   const k = "investors"; const c = getCached<Investor[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("investors").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as Investor[];
+  const result = sanitizeRows((data || []) as Investor[]);
   setCache(k, result);
   return result;
 }
@@ -102,7 +118,7 @@ export async function getProjectInvestors(): Promise<ProjectInvestor[]> {
   const k = "project_investors"; const c = getCached<ProjectInvestor[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("project_investors").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as ProjectInvestor[];
+  const result = sanitizeRows((data || []) as ProjectInvestor[]);
   setCache(k, result);
   return result;
 }
@@ -111,7 +127,7 @@ export async function getStartupInvestors(): Promise<StartupInvestor[]> {
   const k = "startup_investors"; const c = getCached<StartupInvestor[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("startup_investors").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as StartupInvestor[];
+  const result = sanitizeRows((data || []) as StartupInvestor[]);
   setCache(k, result);
   return result;
 }
@@ -120,7 +136,7 @@ export async function getConfig(): Promise<ConfigRow[]> {
   const k = "config"; const c = getCached<ConfigRow[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("config").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as ConfigRow[];
+  const result = sanitizeRows((data || []) as ConfigRow[]);
   setCache(k, result);
   return result;
 }
@@ -136,7 +152,7 @@ export async function getProjectNotes(): Promise<ProjectNote[]> {
   const k = "project_notes"; const c = getCached<ProjectNote[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("project_notes").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as ProjectNote[];
+  const result = sanitizeRows((data || []) as ProjectNote[]);
   setCache(k, result);
   return result;
 }
@@ -145,7 +161,7 @@ export async function getMeetings(): Promise<Meeting[]> {
   const k = "meetings"; const c = getCached<Meeting[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("meetings").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as Meeting[];
+  const result = sanitizeRows((data || []) as Meeting[]);
   setCache(k, result);
   return result;
 }
@@ -154,7 +170,7 @@ export async function getActivityLog(): Promise<ActivityLogEntry[]> {
   const k = "activity_log"; const c = getCached<ActivityLogEntry[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("activity_log").select("*");
   if (error) throw new Error(error.message);
-  const result = (data || []) as ActivityLogEntry[];
+  const result = sanitizeRows((data || []) as ActivityLogEntry[]);
   setCache(k, result);
   return result;
 }
