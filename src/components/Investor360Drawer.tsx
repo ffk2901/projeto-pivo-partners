@@ -67,6 +67,7 @@ export default function Investor360Drawer({
   const [meetingParticipants, setMeetingParticipants] = useState("");
 
   const [saving, setSaving] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
 
   const linkId = link.link_id;
   const investorId = link.investor_id;
@@ -140,6 +141,20 @@ export default function Investor360Drawer({
       onRefresh();
     } catch (err) {
       console.error("Failed to save:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveFromFunnel = async () => {
+    setSaving(true);
+    try {
+      await api().deleteProjectInvestor(link.link_id);
+      setShowRemoveConfirm(false);
+      onClose();
+      onRefresh();
+    } catch (err) {
+      console.error("Failed to remove:", err);
     } finally {
       setSaving(false);
     }
@@ -337,6 +352,7 @@ export default function Investor360Drawer({
             <button onClick={() => { setTab("notes"); setShowNoteForm(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">+ Note</button>
             <button onClick={() => { setTab("tasks"); setShowTaskForm(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">+ Task</button>
             <button onClick={() => { setTab("meetings"); setShowMeetingForm(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">+ Meeting</button>
+            <button onClick={() => setShowRemoveConfirm(true)} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors ml-auto">Remove</button>
           </div>
         </div>
 
@@ -722,7 +738,23 @@ export default function Investor360Drawer({
         </div>
       </div>
 
-      {/* Note form modal fallback - not needed since inline forms are used */}
+      {/* Remove confirmation */}
+      {showRemoveConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-brand-900/40 backdrop-blur-sm" onClick={() => setShowRemoveConfirm(false)}>
+          <div className="bg-surface-0 rounded-2xl shadow-xl border border-brand-200/60 w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-semibold text-ink-800 mb-2">Remove from funnel?</h3>
+            <p className="text-sm text-ink-500 mb-4">
+              <span className="font-medium text-ink-700">{investor.investor_name}</span> will be removed from this funnel. The investor will still exist in the directory.
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setShowRemoveConfirm(false)} disabled={saving} className="px-4 py-2 text-sm text-ink-500 hover:text-ink-700 transition-colors">Cancel</button>
+              <button onClick={handleRemoveFromFunnel} disabled={saving} className="px-4 py-2 text-sm bg-red-500 text-white rounded-xl hover:bg-red-600 disabled:opacity-50 transition-colors font-medium">
+                {saving ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
