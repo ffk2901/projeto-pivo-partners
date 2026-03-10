@@ -62,7 +62,6 @@ CREATE TABLE IF NOT EXISTS investors (
   investor_name TEXT DEFAULT '',
   tags TEXT DEFAULT '',
   email TEXT DEFAULT '',
-  linkedin TEXT DEFAULT '',
   notes TEXT DEFAULT ''
 );
 

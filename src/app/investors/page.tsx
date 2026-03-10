@@ -19,7 +19,6 @@ export default function InvestorsPage() {
   const [newName, setNewName] = useState("");
   const [newTags, setNewTags] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const [newLinkedin, setNewLinkedin] = useState("");
 
   const loadData = useCallback(async () => {
     try {
@@ -50,9 +49,8 @@ export default function InvestorsPage() {
       investor_name: newName.trim(),
       tags: newTags,
       email: newEmail,
-      linkedin: newLinkedin,
     });
-    setNewName(""); setNewTags(""); setNewEmail(""); setNewLinkedin("");
+    setNewName(""); setNewTags(""); setNewEmail("");
     setShowAdd(false);
     loadData();
   };
@@ -147,17 +145,6 @@ export default function InvestorsPage() {
                 </td>
                 <td className="px-5 py-3.5 text-ink-500 text-xs">
                   {inv.email && <div>{inv.email}</div>}
-                  {inv.linkedin && (
-                    <a
-                      href={inv.linkedin}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-brand-500 hover:text-brand-700 transition-colors"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      LinkedIn
-                    </a>
-                  )}
                 </td>
                 <td className="px-5 py-3.5 text-center">
                   <span className="text-xs font-medium text-ink-600 bg-brand-100 px-2 py-0.5 rounded-lg">
@@ -198,11 +185,6 @@ export default function InvestorsPage() {
             <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
               className="w-full border border-brand-200 rounded-xl px-3 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-ink-700 mb-1">LinkedIn URL</label>
-            <input type="url" value={newLinkedin} onChange={(e) => setNewLinkedin(e.target.value)}
-              className="w-full border border-brand-200 rounded-xl px-3 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
-          </div>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-ink-500 hover:text-ink-700 transition-colors">Cancel</button>
             <button onClick={handleCreate} disabled={!newName.trim()}
@@ -220,15 +202,6 @@ export default function InvestorsPage() {
                 <div>
                   <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Email</p>
                   <p className="text-sm text-ink-700">{showDetail.email}</p>
-                </div>
-              )}
-              {showDetail.linkedin && (
-                <div>
-                  <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">LinkedIn</p>
-                  <a href={showDetail.linkedin} target="_blank" rel="noopener noreferrer"
-                    className="text-sm text-brand-500 hover:text-brand-700 break-all transition-colors">
-                    {showDetail.linkedin}
-                  </a>
                 </div>
               )}
             </div>

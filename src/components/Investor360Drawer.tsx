@@ -473,7 +473,6 @@ export default function Investor360Drawer({
                       {link.source && <OverviewField label="Source" value={link.source} />}
                       {link.notes && <OverviewField label="Notes" value={link.notes} />}
                       {investor.email && <OverviewField label="Contact Email" value={investor.email} />}
-                      {investor.linkedin && <OverviewField label="LinkedIn" value={investor.linkedin} />}
 
                       {/* Quick summary stats */}
                       <div className="pt-3 border-t border-brand-200/40">

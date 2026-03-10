@@ -81,7 +81,6 @@ export interface Investor {
   investor_name: string;
   tags: string; // semicolon-separated
   email: string;
-  linkedin: string;
   notes: string;
 }
 
