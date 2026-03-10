@@ -29,7 +29,6 @@ export async function POST(req: NextRequest) {
       investor_name: body.investor_name || "",
       tags: body.tags || "",
       email: body.email || "",
-      linkedin: body.linkedin || "",
       notes: body.notes || "",
     };
 

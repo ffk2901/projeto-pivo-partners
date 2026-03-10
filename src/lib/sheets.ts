@@ -235,7 +235,7 @@ function toProjectNoteLegacy(row: string[]): ProjectNote {
 function toInvestor(row: string[]): Investor {
   return {
     investor_id: row[0] || "", investor_name: row[1] || "",
-    tags: row[2] || "", email: row[3] || "", linkedin: row[4] || "", notes: row[5] || "",
+    tags: row[2] || "", email: row[3] || "", notes: row[4] || "",
   };
 }
 
@@ -495,18 +495,18 @@ export async function updateProject(project: Project): Promise<void> {
 
 // Investors
 export async function createInvestor(investor: Investor): Promise<void> {
-  await appendRows(`${TAB.INVESTORS}!A:F`, [[
+  await appendRows(`${TAB.INVESTORS}!A:E`, [[
     investor.investor_id, investor.investor_name, investor.tags,
-    investor.email, investor.linkedin, investor.notes,
+    investor.email, investor.notes,
   ]]);
   invalidateCache("investors");
 }
 
 export async function updateInvestor(investor: Investor): Promise<void> {
   const rowNum = await findRowById(TAB.INVESTORS, investor.investor_id);
-  await updateRange(`${TAB.INVESTORS}!A${rowNum}:F${rowNum}`, [[
+  await updateRange(`${TAB.INVESTORS}!A${rowNum}:E${rowNum}`, [[
     investor.investor_id, investor.investor_name, investor.tags,
-    investor.email, investor.linkedin, investor.notes,
+    investor.email, investor.notes,
   ]]);
   invalidateCache("investors");
 }
