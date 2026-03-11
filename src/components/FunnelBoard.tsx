@@ -99,12 +99,33 @@ function InvestorCard({
           )}
         </div>
 
-        {/* Type tag */}
-        {investor?.tags && (
-          <span className="text-[10px] text-brand-500 font-medium">
-            {investor.tags.split(";").filter(Boolean)[0]?.trim()}
-          </span>
-        )}
+        {/* Tags + Origin + Wave badges */}
+        <div className="flex items-center gap-1 flex-wrap mt-0.5">
+          {investor?.tags && (
+            <span className="text-[10px] text-brand-500 font-medium">
+              {investor.tags.split(";").filter(Boolean)[0]?.trim()}
+            </span>
+          )}
+          {investor?.origin === "br" && (
+            <span className="text-[8px] px-1 py-0.5 bg-green-100 text-green-700 rounded font-semibold">BR</span>
+          )}
+          {investor?.origin === "intl" && (
+            <span className="text-[8px] px-1 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">INTL</span>
+          )}
+          {link.wave && (() => {
+            const waveColors: Record<string, string> = {
+              "1": "bg-brand-100 text-brand-600",
+              "2": "bg-blue-100 text-blue-600",
+              "3": "bg-purple-100 text-purple-600",
+              "4": "bg-amber-100 text-amber-600",
+            };
+            return (
+              <span className={`text-[8px] px-1 py-0.5 rounded font-semibold ${waveColors[link.wave] || "bg-brand-100 text-brand-600"}`}>
+                W{link.wave}
+              </span>
+            );
+          })()}
+        </div>
 
         {/* Owner */}
         {owner && (
@@ -296,14 +317,44 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
 
   const getInvestor = (id: string) => investors.find((i) => i.investor_id === id);
 
+  // ── Filter state ──
+  const [filterTags, setFilterTags] = useState<string[]>([]);
+  const [filterOrigin, setFilterOrigin] = useState<string>("");
+  const [filterWave, setFilterWave] = useState<string>("");
+
+  const availableTags = useMemo(() => {
+    const tagSet = new Set<string>();
+    displayLinks.forEach((link) => {
+      const inv = investors.find((i) => i.investor_id === link.investor_id);
+      inv?.tags?.split(";").filter(Boolean).forEach((t) => tagSet.add(t.trim()));
+    });
+    return Array.from(tagSet).sort();
+  }, [displayLinks, investors]);
+
+  const filtersActive = filterTags.length > 0 || filterOrigin !== "" || filterWave !== "";
+
+  const filteredLinks = useMemo(() => {
+    if (!filtersActive) return displayLinks;
+    return displayLinks.filter((link) => {
+      const investor = investors.find((i) => i.investor_id === link.investor_id);
+      if (filterOrigin && investor?.origin !== filterOrigin) return false;
+      if (filterWave && link.wave !== filterWave) return false;
+      if (filterTags.length > 0) {
+        const investorTags = investor?.tags?.split(";").map((t) => t.trim().toLowerCase()) || [];
+        if (!filterTags.some((ft) => investorTags.includes(ft.toLowerCase()))) return false;
+      }
+      return true;
+    });
+  }, [displayLinks, investors, filterOrigin, filterWave, filterTags, filtersActive]);
+
   const cardsByStage = useMemo(() => {
     return stages.map((stage) => ({
       stage,
-      cards: displayLinks
+      cards: filteredLinks
         .filter((l) => l.stage === stage)
         .sort((a, b) => a.position_index - b.position_index),
     }));
-  }, [stages, displayLinks]);
+  }, [stages, filteredLinks]);
 
   const [overStage, setOverStage] = useState<string | null>(null);
 
@@ -464,6 +515,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
       last_update: now.split("T")[0],
       next_action: "",
       notes: "",
+      wave: "",
       created_at: now,
       updated_at: now,
     };
@@ -488,14 +540,14 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
   const activeLink = activeId ? displayLinks.find((l) => l.link_id === activeId) : null;
   const activeInvestor = activeLink ? getInvestor(activeLink.investor_id) : null;
 
-  // Stage summary metrics
+  // Stage summary metrics (filtered view)
   const stageSummary = useMemo(() => {
-    const total = displayLinks.length;
-    const active = displayLinks.filter((l) => l.stage === "Active" || l.stage === "Trying to reach").length;
-    const advanced = displayLinks.filter((l) => l.stage === "Advanced").length;
-    const overdue = displayLinks.filter((l) => getFollowUpStatus(l) === "overdue").length;
+    const total = filteredLinks.length;
+    const active = filteredLinks.filter((l) => l.stage === "Active" || l.stage === "Trying to reach").length;
+    const advanced = filteredLinks.filter((l) => l.stage === "Advanced").length;
+    const overdue = filteredLinks.filter((l) => getFollowUpStatus(l) === "overdue").length;
     return { total, active, advanced, overdue };
-  }, [displayLinks]);
+  }, [filteredLinks]);
 
   return (
     <div>
@@ -527,6 +579,74 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
         >
           + Add Investor
         </button>
+      </div>
+
+      {/* Filter bar */}
+      <div className="mb-4 flex items-center gap-3 flex-wrap">
+        {/* Origin filter */}
+        <select
+          value={filterOrigin}
+          onChange={(e) => setFilterOrigin(e.target.value)}
+          className="text-xs border border-brand-200 rounded-lg px-2.5 py-1.5 text-ink-700 bg-surface-0 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+        >
+          <option value="">All Origins</option>
+          <option value="br">Brasileiro</option>
+          <option value="intl">Internacional</option>
+        </select>
+
+        {/* Wave filter */}
+        <select
+          value={filterWave}
+          onChange={(e) => setFilterWave(e.target.value)}
+          className="text-xs border border-brand-200 rounded-lg px-2.5 py-1.5 text-ink-700 bg-surface-0 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+        >
+          <option value="">All Waves</option>
+          <option value="1">1a Onda</option>
+          <option value="2">2a Onda</option>
+          <option value="3">3a Onda</option>
+          <option value="4">4a Onda</option>
+        </select>
+
+        {/* Tag chips */}
+        {availableTags.length > 0 && (
+          <div className="flex items-center gap-1 flex-wrap">
+            {availableTags.map((tag) => {
+              const isActive = filterTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  onClick={() => {
+                    setFilterTags((prev) =>
+                      isActive ? prev.filter((t) => t !== tag) : [...prev, tag]
+                    );
+                  }}
+                  className={`text-[10px] px-2 py-0.5 rounded-lg font-medium transition-colors ${
+                    isActive
+                      ? "bg-brand-500 text-white"
+                      : "bg-brand-100 text-brand-600 hover:bg-brand-200"
+                  }`}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Clear filters + count */}
+        {filtersActive && (
+          <>
+            <button
+              onClick={() => { setFilterTags([]); setFilterOrigin(""); setFilterWave(""); }}
+              className="text-[10px] px-2 py-0.5 text-ink-500 hover:text-ink-700 border border-brand-200 rounded-lg transition-colors"
+            >
+              Clear filters
+            </button>
+            <span className="text-[10px] text-ink-400">
+              Showing {filteredLinks.length} of {displayLinks.length} investors
+            </span>
+          </>
+        )}
       </div>
 
       {addError && (

@@ -16,6 +16,19 @@ export default function InvestorsPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [showDetail, setShowDetail] = useState<Investor | null>(null);
 
+  // Detail modal: edit mode
+  const [detailEditMode, setDetailEditMode] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editOrigin, setEditOrigin] = useState<Investor["origin"]>("");
+
+  // Detail modal: delete
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
   const [newName, setNewName] = useState("");
   const [newTags, setNewTags] = useState("");
   const [newEmail, setNewEmail] = useState("");
@@ -43,6 +56,20 @@ export default function InvestorsPage() {
     loadData();
   }, [loadData]);
 
+  // Sync edit fields when detail modal opens
+  useEffect(() => {
+    if (showDetail) {
+      setEditName(showDetail.investor_name);
+      setEditTags(showDetail.tags);
+      setEditEmail(showDetail.email);
+      setEditNotes(showDetail.notes);
+      setEditOrigin(showDetail.origin || "");
+      setDetailEditMode(false);
+      setShowDeleteConfirm(false);
+      setDeleteError(null);
+    }
+  }, [showDetail]);
+
   const handleCreate = async () => {
     if (!newName.trim()) return;
     await api().createInvestor({
@@ -53,6 +80,45 @@ export default function InvestorsPage() {
     setNewName(""); setNewTags(""); setNewEmail("");
     setShowAdd(false);
     loadData();
+  };
+
+  const handleSaveDetail = async () => {
+    if (!showDetail || !editName.trim()) return;
+    setSaving(true);
+    try {
+      await api().updateInvestor({
+        investor_id: showDetail.investor_id,
+        investor_name: editName.trim(),
+        tags: editTags,
+        email: editEmail,
+        notes: editNotes,
+        origin: editOrigin,
+      });
+      setDetailEditMode(false);
+      setShowDetail(null);
+      loadData();
+    } catch (err) {
+      console.error("Failed to save:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteInvestor = async () => {
+    if (!showDetail) return;
+    setSaving(true);
+    setDeleteError(null);
+    try {
+      await api().deleteInvestor(showDetail.investor_id);
+      setShowDeleteConfirm(false);
+      setShowDetail(null);
+      loadData();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to delete investor";
+      setDeleteError(message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const getProjectCount = (id: string) =>
@@ -83,6 +149,8 @@ export default function InvestorsPage() {
     "Advanced": "bg-purple-100 text-purple-700",
     "Declined": "bg-red-100 text-red-700",
   };
+
+  const inputClass = "w-full border border-brand-200 rounded-xl px-3 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40";
 
   if (loading) {
     return (
@@ -122,6 +190,7 @@ export default function InvestorsPage() {
             <tr className="bg-brand-50 border-b border-brand-200/40">
               <th className="text-left px-5 py-3.5 font-medium text-ink-600">Name</th>
               <th className="text-left px-5 py-3.5 font-medium text-ink-600">Tags</th>
+              <th className="text-left px-5 py-3.5 font-medium text-ink-600">Origin</th>
               <th className="text-left px-5 py-3.5 font-medium text-ink-600">Contact</th>
               <th className="text-center px-5 py-3.5 font-medium text-ink-600">Projects</th>
             </tr>
@@ -142,6 +211,14 @@ export default function InvestorsPage() {
                       </span>
                     ))}
                   </div>
+                </td>
+                <td className="px-5 py-3.5">
+                  {inv.origin === "br" && (
+                    <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded-md font-medium">BR</span>
+                  )}
+                  {inv.origin === "intl" && (
+                    <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-md font-medium">INTL</span>
+                  )}
                 </td>
                 <td className="px-5 py-3.5 text-ink-500 text-xs">
                   {inv.email && <div>{inv.email}</div>}
@@ -171,19 +248,19 @@ export default function InvestorsPage() {
           <div>
             <label className="block text-sm font-medium text-ink-700 mb-1">Name *</label>
             <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
-              className="w-full border border-brand-200 rounded-xl px-3 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              className={inputClass}
               placeholder="e.g. Sequoia Capital" />
           </div>
           <div>
             <label className="block text-sm font-medium text-ink-700 mb-1">Tags (semicolon-separated)</label>
             <input type="text" value={newTags} onChange={(e) => setNewTags(e.target.value)}
-              className="w-full border border-brand-200 rounded-xl px-3 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+              className={inputClass}
               placeholder="e.g. VC;Series A" />
           </div>
           <div>
             <label className="block text-sm font-medium text-ink-700 mb-1">Email</label>
             <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)}
-              className="w-full border border-brand-200 rounded-xl px-3 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
+              className={inputClass} />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button onClick={() => setShowAdd(false)} className="px-4 py-2 text-sm text-ink-500 hover:text-ink-700 transition-colors">Cancel</button>
@@ -193,66 +270,142 @@ export default function InvestorsPage() {
         </div>
       </Modal>
 
-      {/* Investor detail modal */}
+      {/* Investor detail modal (with edit + delete) */}
       <Modal open={!!showDetail} onClose={() => setShowDetail(null)} title={showDetail?.investor_name || "Investor Details"} wide>
         {showDetail && (
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4">
-              {showDetail.email && (
+            {detailEditMode ? (
+              /* ── Edit mode ── */
+              <div className="space-y-4">
                 <div>
-                  <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Email</p>
-                  <p className="text-sm text-ink-700">{showDetail.email}</p>
+                  <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Name *</label>
+                  <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className={inputClass} />
                 </div>
-              )}
-            </div>
+                <div>
+                  <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Tags (semicolon-separated)</label>
+                  <input type="text" value={editTags} onChange={(e) => setEditTags(e.target.value)} className={inputClass} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Email</label>
+                    <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} className={inputClass} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Origin</label>
+                    <select value={editOrigin} onChange={(e) => setEditOrigin(e.target.value as Investor["origin"])} className={inputClass}>
+                      <option value="">Not set</option>
+                      <option value="br">Brasileiro</option>
+                      <option value="intl">Internacional</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Notes</label>
+                  <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={3} className={inputClass} />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button onClick={() => setDetailEditMode(false)} className="px-4 py-2 text-sm text-ink-500 hover:text-ink-700 transition-colors">Cancel</button>
+                  <button onClick={handleSaveDetail} disabled={saving || !editName.trim()}
+                    className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 disabled:opacity-50 transition-colors font-medium">
+                    {saving ? "Saving..." : "Save"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* ── View mode ── */
+              <>
+                {/* Action buttons */}
+                <div className="flex gap-2">
+                  <button onClick={() => setDetailEditMode(true)}
+                    className="px-3 py-1.5 text-xs font-medium bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors">
+                    Edit
+                  </button>
+                  <button onClick={() => setShowDeleteConfirm(true)}
+                    className="px-3 py-1.5 text-xs font-medium bg-surface-0 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                    Delete
+                  </button>
+                </div>
 
-            {showDetail.tags && (
-              <div>
-                <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Tags</p>
-                <div className="flex flex-wrap gap-1">
-                  {showDetail.tags.split(";").filter(Boolean).map((tag) => (
+                <div className="grid grid-cols-2 gap-4">
+                  {showDetail.email && (
+                    <div>
+                      <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Email</p>
+                      <p className="text-sm text-ink-700">{showDetail.email}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {showDetail.tags && showDetail.tags.split(";").filter(Boolean).map((tag) => (
                     <span key={tag} className="text-xs px-2 py-0.5 bg-brand-100 text-brand-600 rounded-lg font-medium">{tag.trim()}</span>
                   ))}
+                  {showDetail.origin === "br" && (
+                    <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-lg font-medium">BR</span>
+                  )}
+                  {showDetail.origin === "intl" && (
+                    <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-lg font-medium">INTL</span>
+                  )}
                 </div>
-              </div>
-            )}
 
-            {showDetail.notes && (
-              <div>
-                <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Notes</p>
-                <p className="text-sm text-ink-700 whitespace-pre-wrap">{showDetail.notes}</p>
-              </div>
-            )}
+                {showDetail.notes && (
+                  <div>
+                    <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Notes</p>
+                    <p className="text-sm text-ink-700 whitespace-pre-wrap">{showDetail.notes}</p>
+                  </div>
+                )}
 
-            <div>
-              <p className="text-xs text-ink-400 uppercase tracking-wide mb-2">Project Relationships</p>
-              {getInvestorProjects(showDetail.investor_id).length === 0 ? (
-                <p className="text-sm text-ink-300 italic">Not linked to any projects.</p>
-              ) : (
-                <div className="space-y-2">
-                  {getInvestorProjects(showDetail.investor_id).map(({ project, startup, stage, last_update, notes: linkNotes }) => (
-                    <div key={project!.project_id} className="bg-surface-50 border border-brand-200/60 rounded-xl px-4 py-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Link href={`/projects/${project!.project_id}`}
-                            className="text-sm font-medium text-ink-800 hover:text-brand-600 transition-colors">
-                            {project!.project_name}
-                          </Link>
-                          {startup && <p className="text-xs text-ink-400">{startup.startup_name}</p>}
+                <div>
+                  <p className="text-xs text-ink-400 uppercase tracking-wide mb-2">Project Relationships</p>
+                  {getInvestorProjects(showDetail.investor_id).length === 0 ? (
+                    <p className="text-sm text-ink-300 italic">Not linked to any projects.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {getInvestorProjects(showDetail.investor_id).map(({ project, startup, stage, last_update, notes: linkNotes }) => (
+                        <div key={project!.project_id} className="bg-surface-50 border border-brand-200/60 rounded-xl px-4 py-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Link href={`/projects/${project!.project_id}`}
+                                className="text-sm font-medium text-ink-800 hover:text-brand-600 transition-colors">
+                                {project!.project_name}
+                              </Link>
+                              {startup && <p className="text-xs text-ink-400">{startup.startup_name}</p>}
+                            </div>
+                            <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${stageColor[stage] || "bg-brand-100 text-brand-600"}`}>
+                              {stage}
+                            </span>
+                          </div>
+                          <div className="flex gap-3 mt-1">
+                            {last_update && <span className="text-xs text-ink-400">Updated: {last_update}</span>}
+                            {linkNotes && <span className="text-xs text-ink-400">{linkNotes}</span>}
+                          </div>
                         </div>
-                        <span className={`text-xs px-2 py-0.5 rounded-lg font-medium ${stageColor[stage] || "bg-brand-100 text-brand-600"}`}>
-                          {stage}
-                        </span>
-                      </div>
-                      <div className="flex gap-3 mt-1">
-                        {last_update && <span className="text-xs text-ink-400">Updated: {last_update}</span>}
-                        {linkNotes && <span className="text-xs text-ink-400">{linkNotes}</span>}
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
+              </>
+            )}
+
+            {/* Delete confirmation */}
+            {showDeleteConfirm && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="text-sm text-red-800 font-medium mb-2">Delete this investor?</p>
+                <p className="text-xs text-red-600 mb-3">
+                  This will permanently delete <span className="font-semibold">{showDetail.investor_name}</span>. This cannot be undone.
+                </p>
+                {deleteError && (
+                  <p className="text-xs text-red-700 bg-red-100 px-3 py-2 rounded-lg mb-3">{deleteError}</p>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={() => { setShowDeleteConfirm(false); setDeleteError(null); }}
+                    className="px-3 py-1.5 text-xs text-ink-500 hover:text-ink-700 transition-colors">Cancel</button>
+                  <button onClick={handleDeleteInvestor} disabled={saving}
+                    className="px-3 py-1.5 text-xs bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 transition-colors font-medium">
+                    {saving ? "Deleting..." : "Delete Permanently"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Modal>

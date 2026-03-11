@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
       last_update: now.split("T")[0],
       next_action: body.next_action || body.next_step || "",
       notes: body.notes || "",
+      wave: body.wave || "",
       created_at: now,
       updated_at: now,
     };

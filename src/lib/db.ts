@@ -231,6 +231,12 @@ export async function updateInvestor(investor: Investor): Promise<void> {
   invalidateCache("investors");
 }
 
+export async function deleteInvestor(investorId: string): Promise<void> {
+  const { error } = await getSupabase().from("investors").delete().eq("investor_id", investorId);
+  if (error) throw new Error(error.message);
+  invalidateCache("investors");
+}
+
 // Project-Investors
 export async function createProjectInvestor(pi: ProjectInvestor): Promise<void> {
   const now = new Date().toISOString();

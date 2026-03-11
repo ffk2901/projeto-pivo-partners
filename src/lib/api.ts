@@ -49,6 +49,8 @@ export function api() {
     getInvestors: () => fetchJson<import("@/types").Investor[]>("/api/investors"),
     createInvestor: (d: Partial<import("@/types").Investor>) => post<import("@/types").Investor>("/api/investors", d),
     updateInvestor: (d: Partial<import("@/types").Investor>) => put<import("@/types").Investor>("/api/investors", d),
+    deleteInvestor: (investorId: string) =>
+      fetchJson<{ success: boolean }>(`/api/investors?investor_id=${investorId}`, { method: "DELETE" }),
 
     // Project-Investors
     getProjectInvestors: (projectId?: string) => {

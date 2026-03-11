@@ -41,6 +41,8 @@ export default function Investor360Drawer({
     next_step: "", follow_up_date: "", latest_update: "",
     fit_summary: "", source: "", last_interaction_date: "",
     last_interaction_type: "", notes: "",
+    origin: "" as Investor["origin"],
+    wave: "" as ProjectInvestor["wave"],
   });
 
   // Note form
@@ -110,9 +112,11 @@ export default function Investor360Drawer({
         last_interaction_date: link.last_interaction_date || "",
         last_interaction_type: link.last_interaction_type || "",
         notes: link.notes || "",
+        origin: investor.origin || "",
+        wave: link.wave || "",
       });
     }
-  }, [link]);
+  }, [link, investor.origin]);
 
   useEffect(() => {
     if (!open) return;
@@ -132,11 +136,17 @@ export default function Investor360Drawer({
   const handleSaveOverview = async () => {
     setSaving(true);
     try {
+      const { origin, wave, ...piFields } = editFields;
       await api().updateProjectInvestor({
         link_id: link.link_id,
-        ...editFields,
-        next_action: editFields.next_step,
+        ...piFields,
+        wave,
+        next_action: piFields.next_step,
       });
+      // Save origin on the investor entity
+      if (origin !== investor.origin) {
+        await api().updateInvestor({ investor_id: investor.investor_id, origin });
+      }
       setEditMode(false);
       onRefresh();
     } catch (err) {
@@ -303,6 +313,19 @@ export default function Investor360Drawer({
                     {tag.trim()}
                   </span>
                 ))}
+                {investor.origin === "br" && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded-md font-medium">BR</span>
+                )}
+                {investor.origin === "intl" && (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-md font-medium">INTL</span>
+                )}
+                {link.wave && (
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${
+                    { "1": "bg-brand-100 text-brand-600", "2": "bg-blue-100 text-blue-600", "3": "bg-purple-100 text-purple-600", "4": "bg-amber-100 text-amber-600" }[link.wave] || "bg-brand-100 text-brand-600"
+                  }`}>
+                    W{link.wave}
+                  </span>
+                )}
                 <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium ${statusConfig.bg} ${statusConfig.color}`}>
                   {isStalled ? "Stalled" : statusConfig.label}
                 </span>
@@ -443,6 +466,26 @@ export default function Investor360Drawer({
                       <div>
                         <label className={labelClass}>Source / Intro</label>
                         <input type="text" value={editFields.source} onChange={(e) => setEditFields({ ...editFields, source: e.target.value })} className={inputClass} placeholder="e.g. Referral from X" />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className={labelClass}>Origin</label>
+                          <select value={editFields.origin} onChange={(e) => setEditFields({ ...editFields, origin: e.target.value as Investor["origin"] })} className={inputClass}>
+                            <option value="">Not set</option>
+                            <option value="br">Brasileiro</option>
+                            <option value="intl">Internacional</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className={labelClass}>Wave</label>
+                          <select value={editFields.wave} onChange={(e) => setEditFields({ ...editFields, wave: e.target.value as ProjectInvestor["wave"] })} className={inputClass}>
+                            <option value="">Not set</option>
+                            <option value="1">1a Onda</option>
+                            <option value="2">2a Onda</option>
+                            <option value="3">3a Onda</option>
+                            <option value="4">4a Onda</option>
+                          </select>
+                        </div>
                       </div>
                       <div>
                         <label className={labelClass}>Notes</label>

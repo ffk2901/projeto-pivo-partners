@@ -82,6 +82,7 @@ export interface Investor {
   tags: string; // semicolon-separated
   email: string;
   notes: string;
+  origin: "br" | "intl" | "";
 }
 
 // Funnel stages
@@ -115,6 +116,7 @@ export interface ProjectInvestor {
   last_update: string; // YYYY-MM-DD (legacy, still tracked)
   next_action: string; // legacy alias for next_step
   notes: string;
+  wave: "" | "1" | "2" | "3" | "4";
   created_at: string;
   updated_at: string;
 }
