@@ -162,10 +162,10 @@ function InvestorCard({
         {(investor?.origin || link.wave) && (
           <div className="flex items-center gap-1.5 mt-1.5">
             {investor?.origin === "br" && (
-              <span className="text-[10px] px-2 py-0.5 bg-green-500 text-white rounded-md font-bold">BR</span>
+              <span className="text-xs px-3 py-1 bg-green-500 text-white rounded-md font-bold">BR</span>
             )}
             {investor?.origin === "intl" && (
-              <span className="text-[10px] px-2 py-0.5 bg-blue-500 text-white rounded-md font-bold">INTL</span>
+              <span className="text-xs px-3 py-1 bg-blue-500 text-white rounded-md font-bold">INTL</span>
             )}
             {link.wave && (() => {
               const waveColors: Record<string, string> = {
@@ -175,7 +175,7 @@ function InvestorCard({
                 "4": "bg-pink-500 text-white",
               };
               return (
-                <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${waveColors[link.wave] || "bg-violet-500 text-white"}`}>
+                <span className={`text-xs px-3 py-1 rounded-md font-bold ${waveColors[link.wave] || "bg-violet-500 text-white"}`}>
                   W{link.wave}
                 </span>
               );
