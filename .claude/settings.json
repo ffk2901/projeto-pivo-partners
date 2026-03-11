@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npx next build:*)",
+      "Bash(grep:*)",
+      "Bash(cat:*)"
     ]
+  },
+  "preferences": {
+    "autoPreview": false
   }
 }
