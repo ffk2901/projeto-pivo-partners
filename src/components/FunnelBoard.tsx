@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -99,33 +99,12 @@ function InvestorCard({
           )}
         </div>
 
-        {/* Tags + Origin + Wave badges */}
-        <div className="flex items-center gap-1 flex-wrap mt-0.5">
-          {investor?.tags && (
-            <span className="text-[10px] text-brand-500 font-medium">
-              {investor.tags.split(";").filter(Boolean)[0]?.trim()}
-            </span>
-          )}
-          {investor?.origin === "br" && (
-            <span className="text-[8px] px-1 py-0.5 bg-green-100 text-green-700 rounded font-semibold">BR</span>
-          )}
-          {investor?.origin === "intl" && (
-            <span className="text-[8px] px-1 py-0.5 bg-blue-100 text-blue-700 rounded font-semibold">INTL</span>
-          )}
-          {link.wave && (() => {
-            const waveColors: Record<string, string> = {
-              "1": "bg-brand-100 text-brand-600",
-              "2": "bg-blue-100 text-blue-600",
-              "3": "bg-purple-100 text-purple-600",
-              "4": "bg-amber-100 text-amber-600",
-            };
-            return (
-              <span className={`text-[8px] px-1 py-0.5 rounded font-semibold ${waveColors[link.wave] || "bg-brand-100 text-brand-600"}`}>
-                W{link.wave}
-              </span>
-            );
-          })()}
-        </div>
+        {/* Tag label */}
+        {investor?.tags && (
+          <span className="text-[10px] text-brand-500 font-medium mt-0.5">
+            {investor.tags.split(";").filter(Boolean)[0]?.trim()}
+          </span>
+        )}
 
         {/* Owner */}
         {owner && (
@@ -178,6 +157,31 @@ function InvestorCard({
             </span>
           )}
         </div>
+
+        {/* Origin + Wave badges */}
+        {(investor?.origin || link.wave) && (
+          <div className="flex items-center gap-1.5 mt-1.5">
+            {investor?.origin === "br" && (
+              <span className="text-[10px] px-2 py-0.5 bg-green-500 text-white rounded-md font-bold">BR</span>
+            )}
+            {investor?.origin === "intl" && (
+              <span className="text-[10px] px-2 py-0.5 bg-blue-500 text-white rounded-md font-bold">INTL</span>
+            )}
+            {link.wave && (() => {
+              const waveColors: Record<string, string> = {
+                "1": "bg-violet-500 text-white",
+                "2": "bg-sky-500 text-white",
+                "3": "bg-orange-500 text-white",
+                "4": "bg-pink-500 text-white",
+              };
+              return (
+                <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${waveColors[link.wave] || "bg-violet-500 text-white"}`}>
+                  W{link.wave}
+                </span>
+              );
+            })()}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -210,10 +214,10 @@ function StageColumn({
 
   const stageAccent: Record<string, string> = {
     "Pipeline": "bg-brand-300/40 text-brand-700",
-    "On Hold": "bg-amber-100 text-amber-700",
     "Trying to reach": "bg-blue-100 text-blue-700",
     "Active": "bg-emerald-100 text-emerald-700",
     "Advanced": "bg-purple-100 text-purple-700",
+    "On Hold": "bg-amber-100 text-amber-700",
     "Declined": "bg-red-100 text-red-700",
   };
 
@@ -321,6 +325,22 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [filterOrigin, setFilterOrigin] = useState<string>("");
   const [filterWave, setFilterWave] = useState<string>("");
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+  const tagDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close tag dropdown on outside click
+  useEffect(() => {
+    if (!tagDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (tagDropdownRef.current && !tagDropdownRef.current.contains(e.target as Node)) {
+        setTagDropdownOpen(false);
+        setTagSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [tagDropdownOpen]);
 
   const availableTags = useMemo(() => {
     const tagSet = new Set<string>();
@@ -607,29 +627,67 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
           <option value="4">4a Onda</option>
         </select>
 
-        {/* Tag chips */}
+        {/* Tag multi-select dropdown */}
         {availableTags.length > 0 && (
-          <div className="flex items-center gap-1 flex-wrap">
-            {availableTags.map((tag) => {
-              const isActive = filterTags.includes(tag);
-              return (
-                <button
-                  key={tag}
-                  onClick={() => {
-                    setFilterTags((prev) =>
-                      isActive ? prev.filter((t) => t !== tag) : [...prev, tag]
-                    );
-                  }}
-                  className={`text-[10px] px-2 py-0.5 rounded-lg font-medium transition-colors ${
-                    isActive
-                      ? "bg-brand-500 text-white"
-                      : "bg-brand-100 text-brand-600 hover:bg-brand-200"
-                  }`}
-                >
-                  {tag}
-                </button>
-              );
-            })}
+          <div className="relative" ref={tagDropdownRef}>
+            <button
+              onClick={() => { setTagDropdownOpen((v) => !v); setTagSearch(""); }}
+              className={`text-xs border rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-1 focus:ring-brand-500/40 ${
+                filterTags.length > 0
+                  ? "border-brand-500 bg-brand-50 text-brand-700"
+                  : "border-brand-200 bg-surface-0 text-ink-700"
+              }`}
+            >
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              Tags{filterTags.length > 0 ? ` (${filterTags.length})` : ""}
+              <svg className={`w-3 h-3 transition-transform ${tagDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {tagDropdownOpen && (
+              <div className="absolute z-50 mt-1 w-56 bg-surface-0 border border-brand-200 rounded-xl shadow-lg overflow-hidden">
+                <div className="p-2 border-b border-brand-100">
+                  <input
+                    type="text"
+                    value={tagSearch}
+                    onChange={(e) => setTagSearch(e.target.value)}
+                    placeholder="Search tags..."
+                    className="w-full text-xs px-2 py-1.5 border border-brand-200 rounded-lg bg-surface-50 text-ink-700 placeholder-ink-300 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+                    autoFocus
+                  />
+                </div>
+                <div className="max-h-[250px] overflow-y-auto p-1">
+                  {availableTags
+                    .filter((tag) => tag.toLowerCase().includes(tagSearch.toLowerCase()))
+                    .map((tag) => {
+                      const isActive = filterTags.includes(tag);
+                      return (
+                        <label
+                          key={tag}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-brand-50 cursor-pointer transition-colors"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isActive}
+                            onChange={() => {
+                              setFilterTags((prev) =>
+                                isActive ? prev.filter((t) => t !== tag) : [...prev, tag]
+                              );
+                            }}
+                            className="w-3.5 h-3.5 rounded border-brand-300 text-brand-500 focus:ring-brand-500/40"
+                          />
+                          <span className="text-xs text-ink-700 truncate">{tag}</span>
+                        </label>
+                      );
+                    })}
+                  {availableTags.filter((tag) => tag.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && (
+                    <p className="text-xs text-ink-400 px-2 py-3 text-center italic">No tags found</p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

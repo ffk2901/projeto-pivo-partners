@@ -88,10 +88,10 @@ export interface Investor {
 // Funnel stages
 export const FUNNEL_STAGES = [
   "Pipeline",
-  "On Hold",
   "Trying to reach",
   "Active",
   "Advanced",
+  "On Hold",
   "Declined",
 ] as const;
 
