@@ -236,6 +236,7 @@ function toInvestor(row: string[]): Investor {
   return {
     investor_id: row[0] || "", investor_name: row[1] || "",
     tags: row[2] || "", email: row[3] || "", notes: row[4] || "",
+    origin: (row[5] as Investor["origin"]) || "",
   };
 }
 
@@ -250,7 +251,8 @@ function toProjectInvestor(row: string[]): ProjectInvestor {
       next_step: row[9] || "", follow_up_date: row[10] || "",
       latest_update: row[11] || "", fit_summary: row[12] || "", source: row[13] || "",
       last_update: row[14] || "", next_action: row[15] || "", notes: row[16] || "",
-      created_at: row[17] || "", updated_at: row[18] || "",
+      wave: (row[17] as ProjectInvestor["wave"]) || "",
+      created_at: row[18] || "", updated_at: row[19] || "",
     };
   }
   // Legacy 8-column format
@@ -262,6 +264,7 @@ function toProjectInvestor(row: string[]): ProjectInvestor {
     next_step: row[5] || "", follow_up_date: "",
     latest_update: "", fit_summary: "", source: "",
     last_update: row[4] || "", next_action: row[5] || "", notes: row[6] || "",
+    wave: "",
     created_at: "", updated_at: "",
   };
 }

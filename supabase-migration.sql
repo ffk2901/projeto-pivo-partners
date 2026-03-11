@@ -161,6 +161,12 @@ CREATE TABLE IF NOT EXISTS meetings (
   updated_at TEXT DEFAULT ''
 );
 
+-- INVESTORS: origin column (br / intl)
+ALTER TABLE investors ADD COLUMN IF NOT EXISTS origin TEXT DEFAULT '';
+
+-- PROJECT_INVESTORS: wave column (1 / 2 / 3 / 4)
+ALTER TABLE project_investors ADD COLUMN IF NOT EXISTS wave TEXT DEFAULT '';
+
 -- ACTIVITY_LOG
 CREATE TABLE IF NOT EXISTS activity_log (
   activity_id TEXT PRIMARY KEY,

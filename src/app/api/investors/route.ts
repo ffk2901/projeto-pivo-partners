@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getInvestors,
+  getProjectInvestors,
   createInvestor,
   updateInvestor,
+  deleteInvestor,
   generateId,
 } from "@/lib/db";
 import type { Investor } from "@/types";
@@ -30,6 +32,7 @@ export async function POST(req: NextRequest) {
       tags: body.tags || "",
       email: body.email || "",
       notes: body.notes || "",
+      origin: body.origin || "",
     };
 
     if (!investor.investor_name) {
@@ -71,6 +74,40 @@ export async function PUT(req: NextRequest) {
     const updated: Investor = { ...existing, ...body };
     await updateInvestor(updated);
     return NextResponse.json(updated);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const investorId = searchParams.get("investor_id");
+    if (!investorId) {
+      return NextResponse.json({ error: "investor_id is required" }, { status: 400 });
+    }
+
+    const investors = await getInvestors();
+    const existing = investors.find((i) => i.investor_id === investorId);
+    if (!existing) {
+      return NextResponse.json({ error: `Investor "${investorId}" not found` }, { status: 404 });
+    }
+
+    // Check if linked to any funnel
+    const piLinks = await getProjectInvestors();
+    const linked = piLinks.some((pi) => pi.investor_id === investorId);
+    if (linked) {
+      return NextResponse.json(
+        { error: "This investor is linked to one or more funnels. Remove them from all funnels first." },
+        { status: 409 }
+      );
+    }
+
+    await deleteInvestor(investorId);
+    return NextResponse.json({ success: true });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
