@@ -79,10 +79,13 @@ export interface ProjectNote {
 export interface Investor {
   investor_id: string;
   investor_name: string;
+  investor_type: "fund" | "individual" | "";
   tags: string; // semicolon-separated
   email: string;
   notes: string;
   origin: "br" | "intl" | "";
+  company_affiliation: string;
+  description: string;
 }
 
 // Funnel stages
