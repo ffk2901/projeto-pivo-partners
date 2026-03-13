@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
       role,
       status: "active",
       created_at: now,
-      last_login: "",
+      last_login: null,
     };
 
     await createUser(user);

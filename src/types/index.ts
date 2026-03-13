@@ -201,7 +201,7 @@ export interface User {
   role: "admin" | "client";
   status: "active" | "inactive" | "pending";
   created_at: string;
-  last_login: string;
+  last_login: string | null;
 }
 
 export interface UserProjectAccess {
