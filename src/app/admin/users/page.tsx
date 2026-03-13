@@ -70,8 +70,9 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ name: formName, email: formEmail, role: formRole, password: formPassword }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to create user");
+        let msg = "Failed to create user";
+        try { const data = await res.json(); msg = data.error || msg; } catch { /* non-JSON response */ }
+        throw new Error(msg);
       }
       setShowCreate(false);
       setFormName(""); setFormEmail(""); setFormPassword(""); setFormRole("client");
@@ -108,8 +109,9 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ user_id: resetUserId, new_password: newPassword }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to reset password");
+        let msg = "Failed to reset password";
+        try { const data = await res.json(); msg = data.error || msg; } catch { /* non-JSON response */ }
+        throw new Error(msg);
       }
       setResetUserId(null);
       setNewPassword("");
@@ -143,8 +145,9 @@ export default function AdminUsersPage() {
         body: JSON.stringify({ user_id: accessUserId, project_id: projectId, permission_level: permissionLevel }),
       });
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to grant access");
+        let msg = "Failed to grant access";
+        try { const data = await res.json(); msg = data.error || msg; } catch { /* non-JSON response */ }
+        throw new Error(msg);
       }
       loadUserAccess(accessUserId);
     } catch (err) {
