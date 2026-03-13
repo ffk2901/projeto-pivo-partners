@@ -85,7 +85,7 @@ function InvestorCard({
       style={style}
       {...attributes}
       {...listeners}
-      className="bg-surface-0 border border-brand-200/60 rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-brand-400 hover:shadow-sm transition-colors group"
+      className={`bg-surface-0 border border-brand-200/60 rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-brand-400 hover:shadow-sm transition-colors group ${investor?.investor_type === "individual" ? "border-l-[3px] border-l-purple-400" : ""}`}
     >
       {/* Click target for opening drawer */}
       <div
@@ -93,13 +93,23 @@ function InvestorCard({
         onClick={(e) => { e.stopPropagation(); onOpenDrawer(link); }}
       >
         <div className="flex items-start justify-between">
-          <p className="text-sm font-medium text-ink-800 hover:text-brand-600 transition-colors">
-            {investor?.investor_name || link.investor_id}
-          </p>
+          <div className="flex items-center gap-1 min-w-0">
+            <p className="text-sm font-medium text-ink-800 hover:text-brand-600 transition-colors truncate">
+              {investor?.investor_name || link.investor_id}
+            </p>
+            {investor?.investor_type === "individual" && (
+              <span className="text-[8px] px-1 py-0.5 bg-purple-100 text-purple-600 rounded font-bold flex-shrink-0">PF</span>
+            )}
+          </div>
           {link.priority === "high" && (
             <span className="text-[8px] px-1 py-0.5 bg-red-100 text-red-600 rounded font-bold flex-shrink-0 ml-1">HIGH</span>
           )}
         </div>
+
+        {/* Company affiliation for individuals */}
+        {investor?.investor_type === "individual" && investor?.company_affiliation && (
+          <p className="text-[10px] text-ink-400 mt-0.5">via {investor.company_affiliation}</p>
+        )}
 
         {/* Tag label */}
         {investor?.tags && (

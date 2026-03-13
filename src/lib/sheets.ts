@@ -235,8 +235,11 @@ function toProjectNoteLegacy(row: string[]): ProjectNote {
 function toInvestor(row: string[]): Investor {
   return {
     investor_id: row[0] || "", investor_name: row[1] || "",
+    investor_type: (row[6] as Investor["investor_type"]) || "fund",
     tags: row[2] || "", email: row[3] || "", notes: row[4] || "",
     origin: (row[5] as Investor["origin"]) || "",
+    company_affiliation: row[7] || "",
+    description: row[8] || "",
   };
 }
 

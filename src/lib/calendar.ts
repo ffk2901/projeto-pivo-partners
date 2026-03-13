@@ -4,11 +4,18 @@ let calendarInstance: calendar_v3.Calendar | null = null;
 
 function getCalendar(): calendar_v3.Calendar {
   if (calendarInstance) return calendarInstance;
+
+  const clientEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+
+  if (!clientEmail || !privateKey) {
+    throw new Error(
+      "Google Calendar not configured — set GOOGLE_SERVICE_ACCOUNT_EMAIL and GOOGLE_PRIVATE_KEY environment variables"
+    );
+  }
+
   const auth = new google.auth.GoogleAuth({
-    credentials: {
-      client_email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
-    },
+    credentials: { client_email: clientEmail, private_key: privateKey },
     scopes: ["https://www.googleapis.com/auth/calendar"],
   });
   calendarInstance = google.calendar({ version: "v3", auth });
@@ -29,7 +36,49 @@ export interface CalendarEventResult {
   htmlLink: string;
 }
 
+/**
+ * Tests Calendar API connectivity by listing 1 event.
+ */
+export async function testCalendarConnection(): Promise<{ connected: boolean; error?: string }> {
+  try {
+    const calendar = getCalendar();
+    const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
+    await calendar.events.list({
+      calendarId,
+      maxResults: 1,
+      timeMin: new Date().toISOString(),
+    });
+    return { connected: true };
+  } catch (err) {
+    const message = parseCalendarError(err);
+    return { connected: false, error: message };
+  }
+}
+
+function parseCalendarError(err: unknown): string {
+  if (!(err instanceof Error)) return "Unknown calendar error";
+  const msg = err.message || "";
+
+  if (msg.includes("invalid_grant") || msg.includes("Invalid JWT")) {
+    return "Calendar authentication failed — check service account credentials";
+  }
+  if (msg.includes("notFound") || msg.includes("Not Found")) {
+    return "Calendar not found — check GOOGLE_CALENDAR_ID or ensure the calendar is shared with the service account";
+  }
+  if (msg.includes("forbidden") || msg.includes("insufficientPermissions") || msg.includes("403")) {
+    return "Calendar permission denied — ensure the service account has Editor access to the target calendar";
+  }
+  if (msg.includes("Calendar API") || msg.includes("accessNotConfigured") || msg.includes("has not been used")) {
+    return "Calendar API not enabled — enable the Google Calendar API in Google Cloud Console";
+  }
+  return `Calendar error: ${msg}`;
+}
+
 export async function createCalendarEvent(input: CalendarEventInput): Promise<CalendarEventResult> {
+  if (!input.attendeeEmail) {
+    throw new Error("Cannot create calendar event — no attendee email provided");
+  }
+
   const calendar = getCalendar();
 
   const event: calendar_v3.Schema$Event = {
@@ -42,29 +91,32 @@ export async function createCalendarEvent(input: CalendarEventInput): Promise<Ca
   };
 
   if (input.time) {
-    // Timed event
     const startDateTime = `${input.date}T${input.time}:00`;
     const startDate = new Date(`${startDateTime}`);
-    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // +1 hour
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
     event.start = { dateTime: startDate.toISOString(), timeZone: "America/Sao_Paulo" };
     event.end = { dateTime: endDate.toISOString(), timeZone: "America/Sao_Paulo" };
   } else {
-    // All-day event
     event.start = { date: input.date };
     event.end = { date: input.date };
   }
 
   const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
-  const res = await calendar.events.insert({
-    calendarId,
-    requestBody: event,
-    sendUpdates: "all",
-  });
 
-  return {
-    eventId: res.data.id || "",
-    htmlLink: res.data.htmlLink || "",
-  };
+  try {
+    const res = await calendar.events.insert({
+      calendarId,
+      requestBody: event,
+      sendUpdates: "all",
+    });
+
+    return {
+      eventId: res.data.id || "",
+      htmlLink: res.data.htmlLink || "",
+    };
+  } catch (err) {
+    throw new Error(parseCalendarError(err));
+  }
 }
 
 export async function updateCalendarEvent(
@@ -74,48 +126,65 @@ export async function updateCalendarEvent(
   const calendar = getCalendar();
   const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
 
-  // Get existing event
-  const existing = await calendar.events.get({ calendarId, eventId });
-  const event = existing.data;
+  try {
+    const existing = await calendar.events.get({ calendarId, eventId });
+    const event = existing.data;
 
-  if (input.summary) event.summary = input.summary;
-  if (input.description !== undefined) event.description = input.description;
+    if (input.summary) event.summary = input.summary;
+    if (input.description !== undefined) event.description = input.description;
 
-  if (input.date) {
-    if (input.time) {
-      const startDateTime = `${input.date}T${input.time}:00`;
-      const startDate = new Date(`${startDateTime}`);
-      const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
-      event.start = { dateTime: startDate.toISOString(), timeZone: "America/Sao_Paulo" };
-      event.end = { dateTime: endDate.toISOString(), timeZone: "America/Sao_Paulo" };
-    } else {
-      event.start = { date: input.date };
-      event.end = { date: input.date };
+    if (input.date) {
+      if (input.time) {
+        const startDateTime = `${input.date}T${input.time}:00`;
+        const startDate = new Date(`${startDateTime}`);
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+        event.start = { dateTime: startDate.toISOString(), timeZone: "America/Sao_Paulo" };
+        event.end = { dateTime: endDate.toISOString(), timeZone: "America/Sao_Paulo" };
+      } else {
+        event.start = { date: input.date };
+        event.end = { date: input.date };
+      }
     }
+
+    if (input.attendeeEmail) {
+      event.attendees = [
+        { email: input.attendeeEmail },
+        ...(input.additionalEmails || []).filter(Boolean).map((e) => ({ email: e })),
+      ];
+    }
+
+    const res = await calendar.events.update({
+      calendarId,
+      eventId,
+      requestBody: event,
+      sendUpdates: "all",
+    });
+
+    return {
+      eventId: res.data.id || "",
+      htmlLink: res.data.htmlLink || "",
+    };
+  } catch (err) {
+    const msg = parseCalendarError(err);
+    if (msg.includes("not found") || msg.includes("Not Found")) {
+      throw new Error("Calendar event not found (may have been deleted externally)");
+    }
+    throw new Error(msg);
   }
-
-  if (input.attendeeEmail) {
-    event.attendees = [
-      { email: input.attendeeEmail },
-      ...(input.additionalEmails || []).filter(Boolean).map((e) => ({ email: e })),
-    ];
-  }
-
-  const res = await calendar.events.update({
-    calendarId,
-    eventId,
-    requestBody: event,
-    sendUpdates: "all",
-  });
-
-  return {
-    eventId: res.data.id || "",
-    htmlLink: res.data.htmlLink || "",
-  };
 }
 
 export async function deleteCalendarEvent(eventId: string): Promise<void> {
   const calendar = getCalendar();
   const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
-  await calendar.events.delete({ calendarId, eventId, sendUpdates: "all" });
+
+  try {
+    await calendar.events.delete({ calendarId, eventId, sendUpdates: "all" });
+  } catch (err) {
+    const msg = parseCalendarError(err);
+    if (msg.includes("not found") || msg.includes("Not Found")) {
+      // Event already deleted externally — not an error
+      return;
+    }
+    throw new Error(msg);
+  }
 }

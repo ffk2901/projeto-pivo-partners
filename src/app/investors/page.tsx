@@ -29,9 +29,17 @@ export default function InvestorsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [editType, setEditType] = useState<Investor["investor_type"]>("fund");
+  const [editCompany, setEditCompany] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
   const [newName, setNewName] = useState("");
   const [newTags, setNewTags] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [newType, setNewType] = useState<Investor["investor_type"]>("fund");
+  const [newCompany, setNewCompany] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [filterType, setFilterType] = useState<string>("");
 
   const loadData = useCallback(async () => {
     try {
@@ -64,6 +72,9 @@ export default function InvestorsPage() {
       setEditEmail(showDetail.email);
       setEditNotes(showDetail.notes);
       setEditOrigin(showDetail.origin || "");
+      setEditType(showDetail.investor_type || "fund");
+      setEditCompany(showDetail.company_affiliation || "");
+      setEditDescription(showDetail.description || "");
       setDetailEditMode(false);
       setShowDeleteConfirm(false);
       setDeleteError(null);
@@ -74,10 +85,13 @@ export default function InvestorsPage() {
     if (!newName.trim()) return;
     await api().createInvestor({
       investor_name: newName.trim(),
+      investor_type: newType || "fund",
       tags: newTags,
       email: newEmail,
+      company_affiliation: newCompany,
+      description: newDescription,
     });
-    setNewName(""); setNewTags(""); setNewEmail("");
+    setNewName(""); setNewTags(""); setNewEmail(""); setNewType("fund"); setNewCompany(""); setNewDescription("");
     setShowAdd(false);
     loadData();
   };
@@ -89,10 +103,13 @@ export default function InvestorsPage() {
       await api().updateInvestor({
         investor_id: showDetail.investor_id,
         investor_name: editName.trim(),
+        investor_type: editType,
         tags: editTags,
         email: editEmail,
         notes: editNotes,
         origin: editOrigin,
+        company_affiliation: editCompany,
+        description: editDescription,
       });
       setDetailEditMode(false);
       setShowDetail(null);
@@ -137,7 +154,9 @@ export default function InvestorsPage() {
 
   const filtered = investors.filter((i) => {
     const q = search.toLowerCase();
-    return i.investor_name.toLowerCase().includes(q) || i.tags.toLowerCase().includes(q);
+    const matchesSearch = i.investor_name.toLowerCase().includes(q) || i.tags.toLowerCase().includes(q) || (i.company_affiliation || "").toLowerCase().includes(q);
+    const matchesType = !filterType || (i.investor_type || "fund") === filterType;
+    return matchesSearch && matchesType;
   });
 
   // Stage-specific colors for badges
@@ -176,19 +195,31 @@ export default function InvestorsPage() {
         </button>
       </div>
 
-      <input
-        type="text"
-        placeholder="Search by name or tags..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full max-w-sm border border-brand-200 rounded-xl px-4 py-2.5 text-sm mb-6 bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 placeholder:text-ink-400"
-      />
+      <div className="flex items-center gap-3 mb-6">
+        <input
+          type="text"
+          placeholder="Search by name, tags, or company..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full max-w-sm border border-brand-200 rounded-xl px-4 py-2.5 text-sm bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 placeholder:text-ink-400"
+        />
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="text-sm border border-brand-200 rounded-xl px-3 py-2.5 bg-surface-0 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
+        >
+          <option value="">All Types</option>
+          <option value="fund">Funds</option>
+          <option value="individual">Individuals</option>
+        </select>
+      </div>
 
       <div className="bg-surface-0 border border-brand-200/60 rounded-2xl overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-brand-50 border-b border-brand-200/40">
               <th className="text-left px-5 py-3.5 font-medium text-ink-600">Name</th>
+              <th className="text-left px-5 py-3.5 font-medium text-ink-600">Type</th>
               <th className="text-left px-5 py-3.5 font-medium text-ink-600">Tags</th>
               <th className="text-left px-5 py-3.5 font-medium text-ink-600">Origin</th>
               <th className="text-left px-5 py-3.5 font-medium text-ink-600">Contact</th>
@@ -202,7 +233,19 @@ export default function InvestorsPage() {
                 className="hover:bg-brand-50/50 cursor-pointer transition-colors"
                 onClick={() => setShowDetail(inv)}
               >
-                <td className="px-5 py-3.5 font-medium text-ink-800">{inv.investor_name}</td>
+                <td className="px-5 py-3.5">
+                  <div className="font-medium text-ink-800">{inv.investor_name}</div>
+                  {(inv.investor_type === "individual") && inv.company_affiliation && (
+                    <div className="text-xs text-ink-400 mt-0.5">via {inv.company_affiliation}</div>
+                  )}
+                </td>
+                <td className="px-5 py-3.5">
+                  {(inv.investor_type === "individual") ? (
+                    <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-md font-medium">Individual</span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 bg-brand-100 text-brand-600 rounded-md font-medium">Fund</span>
+                  )}
+                </td>
                 <td className="px-5 py-3.5">
                   <div className="flex flex-wrap gap-1">
                     {inv.tags && inv.tags.split(";").filter(Boolean).map((tag) => (
@@ -246,10 +289,37 @@ export default function InvestorsPage() {
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Investor">
         <div className="space-y-4">
           <div>
+            <label className="block text-sm font-medium text-ink-700 mb-1">Type</label>
+            <div className="flex gap-2">
+              <button onClick={() => setNewType("fund")}
+                className={`flex-1 px-3 py-2 text-sm rounded-xl border font-medium transition-colors ${newType === "fund" ? "bg-brand-500 text-white border-brand-500" : "bg-surface-0 text-ink-600 border-brand-200 hover:bg-brand-50"}`}>
+                Fund
+              </button>
+              <button onClick={() => setNewType("individual")}
+                className={`flex-1 px-3 py-2 text-sm rounded-xl border font-medium transition-colors ${newType === "individual" ? "bg-purple-500 text-white border-purple-500" : "bg-surface-0 text-ink-600 border-brand-200 hover:bg-purple-50"}`}>
+                Individual Person
+              </button>
+            </div>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-ink-700 mb-1">Name *</label>
             <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
               className={inputClass}
-              placeholder="e.g. Sequoia Capital" />
+              placeholder={newType === "individual" ? "e.g. João Silva" : "e.g. Sequoia Capital"} />
+          </div>
+          {newType === "individual" && (
+            <div>
+              <label className="block text-sm font-medium text-ink-700 mb-1">Company Affiliation</label>
+              <input type="text" value={newCompany} onChange={(e) => setNewCompany(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. Empresa X" />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-ink-700 mb-1">Description</label>
+            <input type="text" value={newDescription} onChange={(e) => setNewDescription(e.target.value)}
+              className={inputClass}
+              placeholder="Brief description" />
           </div>
           <div>
             <label className="block text-sm font-medium text-ink-700 mb-1">Tags (semicolon-separated)</label>
@@ -278,8 +348,31 @@ export default function InvestorsPage() {
               /* ── Edit mode ── */
               <div className="space-y-4">
                 <div>
+                  <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Type</label>
+                  <div className="flex gap-2">
+                    <button onClick={() => setEditType("fund")}
+                      className={`flex-1 px-3 py-2 text-sm rounded-xl border font-medium transition-colors ${editType === "fund" ? "bg-brand-500 text-white border-brand-500" : "bg-surface-0 text-ink-600 border-brand-200 hover:bg-brand-50"}`}>
+                      Fund
+                    </button>
+                    <button onClick={() => setEditType("individual")}
+                      className={`flex-1 px-3 py-2 text-sm rounded-xl border font-medium transition-colors ${editType === "individual" ? "bg-purple-500 text-white border-purple-500" : "bg-surface-0 text-ink-600 border-brand-200 hover:bg-purple-50"}`}>
+                      Individual Person
+                    </button>
+                  </div>
+                </div>
+                <div>
                   <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Name *</label>
                   <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className={inputClass} />
+                </div>
+                {editType === "individual" && (
+                  <div>
+                    <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Company Affiliation</label>
+                    <input type="text" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} className={inputClass} placeholder="e.g. Empresa X" />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Description</label>
+                  <input type="text" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className={inputClass} placeholder="Brief description" />
                 </div>
                 <div>
                   <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Tags (semicolon-separated)</label>
@@ -336,6 +429,11 @@ export default function InvestorsPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  {(showDetail.investor_type === "individual") ? (
+                    <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-lg font-medium">Individual</span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 bg-brand-100 text-brand-600 rounded-lg font-medium">Fund</span>
+                  )}
                   {showDetail.tags && showDetail.tags.split(";").filter(Boolean).map((tag) => (
                     <span key={tag} className="text-xs px-2 py-0.5 bg-brand-100 text-brand-600 rounded-lg font-medium">{tag.trim()}</span>
                   ))}
@@ -346,6 +444,20 @@ export default function InvestorsPage() {
                     <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-lg font-medium">INTL</span>
                   )}
                 </div>
+
+                {showDetail.company_affiliation && (
+                  <div>
+                    <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Company Affiliation</p>
+                    <p className="text-sm text-ink-700">{showDetail.company_affiliation}</p>
+                  </div>
+                )}
+
+                {showDetail.description && (
+                  <div>
+                    <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Description</p>
+                    <p className="text-sm text-ink-700">{showDetail.description}</p>
+                  </div>
+                )}
 
                 {showDetail.notes && (
                   <div>

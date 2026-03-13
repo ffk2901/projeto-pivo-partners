@@ -92,11 +92,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "title is required" }, { status: 400 });
     }
 
-    if (task.due_date && task.owner_id && task.status !== "done") {
-      const calFields = await autoSyncToCalendar(task);
-      task = { ...task, ...calFields };
-    }
-
+    // Calendar sync is now manual-only — no auto-sync on create
     await createTask(task);
 
     // Log activity if task is linked to an investor
@@ -136,17 +132,12 @@ export async function PUT(req: NextRequest) {
     }
     let updated: Task = { ...existing, ...body, updated_at: new Date().toISOString() };
 
-    const calFieldsChanged =
-      updated.due_date !== existing.due_date ||
-      updated.due_time !== existing.due_time ||
-      updated.title !== existing.title ||
-      updated.owner_id !== existing.owner_id ||
-      updated.status !== existing.status ||
-      updated.notes !== existing.notes;
-
-    if (calFieldsChanged) {
-      const calFields = await autoSyncToCalendar(updated);
-      updated = { ...updated, ...calFields };
+    // If task is marked done and was synced, clean up calendar event
+    if (updated.status === "done" && existing.status !== "done" && existing.calendar_event_id) {
+      try {
+        const calFields = await autoSyncToCalendar(updated, { forceDelete: true });
+        updated = { ...updated, ...calFields };
+      } catch { /* non-critical */ }
     }
 
     await updateTask(updated);
