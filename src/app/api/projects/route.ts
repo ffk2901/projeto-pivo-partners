@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-auth";
 import { getProjects, createProject, updateProject, generateId } from "@/lib/db";
 import type { Project } from "@/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const { searchParams } = new URL(req.url);
     const startupId = searchParams.get("startup_id");
@@ -17,6 +20,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     if (!body.startup_id || !body.project_name) {
@@ -38,6 +43,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     if (!body.project_id) {

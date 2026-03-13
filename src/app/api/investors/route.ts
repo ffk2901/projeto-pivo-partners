@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-auth";
 import {
   getInvestors,
   getProjectInvestors,
@@ -11,7 +12,9 @@ import type { Investor } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  if (auth instanceof NextResponse) return auth;
   try {
     const investors = await getInvestors();
     return NextResponse.json(investors);
@@ -24,6 +27,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     const investor: Investor = {
@@ -53,6 +58,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     if (!body.investor_id) {
@@ -83,6 +90,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const { searchParams } = new URL(req.url);
     const investorId = searchParams.get("investor_id");

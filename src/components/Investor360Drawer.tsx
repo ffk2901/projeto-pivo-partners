@@ -22,10 +22,12 @@ interface Props {
   stages: string[];
   team: TeamMember[];
   onRefresh: () => void;
+  readOnly?: boolean;
+  apiPrefix?: string;
 }
 
 export default function Investor360Drawer({
-  open, onClose, link, investor, projectId, stages, team, onRefresh,
+  open, onClose, link, investor, projectId, stages, team, onRefresh, readOnly, apiPrefix,
 }: Props) {
   const [tab, setTab] = useState<DrawerTab>("overview");
   const [notes, setNotes] = useState<ProjectNote[]>([]);
@@ -79,10 +81,10 @@ export default function Investor360Drawer({
     setLoading(true);
     try {
       const [n, t, m, a] = await Promise.all([
-        api().getProjectNotes(projectId, investorId),
-        api().getTasks(),
-        api().getMeetings(projectId, investorId),
-        api().getActivityLog(projectId, investorId),
+        api(apiPrefix).getProjectNotes(projectId, investorId),
+        api(apiPrefix).getTasks(),
+        api(apiPrefix).getMeetings(projectId, investorId),
+        api(apiPrefix).getActivityLog(projectId, investorId),
       ]);
       setNotes(n);
       setTasks(t.filter((task) => task.project_id === projectId && task.investor_id === investorId));
@@ -137,7 +139,7 @@ export default function Investor360Drawer({
     setSaving(true);
     try {
       const { origin, wave, ...piFields } = editFields;
-      await api().updateProjectInvestor({
+      await api(apiPrefix).updateProjectInvestor({
         link_id: link.link_id,
         ...piFields,
         wave,
@@ -145,7 +147,7 @@ export default function Investor360Drawer({
       });
       // Save origin on the investor entity
       if (origin !== investor.origin) {
-        await api().updateInvestor({ investor_id: investor.investor_id, origin });
+        await api(apiPrefix).updateInvestor({ investor_id: investor.investor_id, origin });
       }
       setEditMode(false);
       onRefresh();
@@ -159,7 +161,7 @@ export default function Investor360Drawer({
   const handleRemoveFromFunnel = async () => {
     setSaving(true);
     try {
-      await api().deleteProjectInvestor(link.link_id);
+      await api(apiPrefix).deleteProjectInvestor(link.link_id);
       setShowRemoveConfirm(false);
       onClose();
       onRefresh();
@@ -173,7 +175,7 @@ export default function Investor360Drawer({
   const handleChangeStage = async (newStage: string) => {
     setSaving(true);
     try {
-      await api().updateProjectInvestor({ link_id: link.link_id, stage: newStage });
+      await api(apiPrefix).updateProjectInvestor({ link_id: link.link_id, stage: newStage });
       onRefresh();
     } catch (err) {
       console.error("Failed to change stage:", err);
@@ -186,7 +188,7 @@ export default function Investor360Drawer({
     if (!noteContent.trim()) return;
     setSaving(true);
     try {
-      await api().createProjectNote({
+      await api(apiPrefix).createProjectNote({
         project_id: projectId,
         investor_id: link.investor_id,
         title: noteTitle,
@@ -211,7 +213,7 @@ export default function Investor360Drawer({
     if (!taskTitle.trim()) return;
     setSaving(true);
     try {
-      await api().createTask({
+      await api(apiPrefix).createTask({
         project_id: projectId,
         investor_id: link.investor_id,
         startup_id: "",
@@ -235,7 +237,7 @@ export default function Investor360Drawer({
     if (!meetingTitle.trim() || !meetingDate) return;
     setSaving(true);
     try {
-      await api().createMeeting({
+      await api(apiPrefix).createMeeting({
         project_id: projectId,
         investor_id: link.investor_id,
         title: meetingTitle,
@@ -257,7 +259,7 @@ export default function Investor360Drawer({
   const handleToggleTask = async (task: Task) => {
     const newStatus = task.status === "done" ? "todo" : "done";
     try {
-      await api().updateTask({ task_id: task.task_id, status: newStatus });
+      await api(apiPrefix).updateTask({ task_id: task.task_id, status: newStatus });
       loadInvestorData();
       onRefresh();
     } catch (err) {
@@ -351,13 +353,17 @@ export default function Investor360Drawer({
           <div className="grid grid-cols-3 gap-3 text-xs">
             <div>
               <span className="text-ink-400">Stage</span>
-              <select
-                value={link.stage}
-                onChange={(e) => handleChangeStage(e.target.value)}
-                className="mt-0.5 w-full text-xs border border-brand-200 rounded-lg px-1.5 py-1 text-ink-700 bg-surface-0 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
-              >
-                {stages.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              {readOnly ? (
+                <p className="mt-0.5 text-ink-700 font-medium">{link.stage}</p>
+              ) : (
+                <select
+                  value={link.stage}
+                  onChange={(e) => handleChangeStage(e.target.value)}
+                  className="mt-0.5 w-full text-xs border border-brand-200 rounded-lg px-1.5 py-1 text-ink-700 bg-surface-0 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+                >
+                  {stages.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              )}
             </div>
             <div>
               <span className="text-ink-400">Owner</span>
@@ -370,13 +376,15 @@ export default function Investor360Drawer({
           </div>
 
           {/* Quick actions */}
-          <div className="flex gap-1.5 mt-3 flex-wrap">
-            <button onClick={() => { setTab("overview"); setEditMode(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors">Edit</button>
-            <button onClick={() => { setTab("notes"); setShowNoteForm(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">+ Note</button>
-            <button onClick={() => { setTab("tasks"); setShowTaskForm(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">+ Task</button>
-            <button onClick={() => { setTab("meetings"); setShowMeetingForm(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">+ Meeting</button>
-            <button onClick={() => setShowRemoveConfirm(true)} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors ml-auto">Remove</button>
-          </div>
+          {!readOnly && (
+            <div className="flex gap-1.5 mt-3 flex-wrap">
+              <button onClick={() => { setTab("overview"); setEditMode(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-brand-500 text-white rounded-lg hover:bg-brand-600 transition-colors">Edit</button>
+              <button onClick={() => { setTab("notes"); setShowNoteForm(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">+ Note</button>
+              <button onClick={() => { setTab("tasks"); setShowTaskForm(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">+ Task</button>
+              <button onClick={() => { setTab("meetings"); setShowMeetingForm(true); }} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-brand-600 border border-brand-200 rounded-lg hover:bg-brand-50 transition-colors">+ Meeting</button>
+              <button onClick={() => setShowRemoveConfirm(true)} className="px-2.5 py-1 text-[10px] font-medium bg-surface-0 text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors ml-auto">Remove</button>
+            </div>
+          )}
         </div>
 
         {/* Tab nav */}
@@ -535,12 +543,14 @@ export default function Investor360Drawer({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-ink-700">Meetings</h3>
-                    <button
-                      onClick={() => setShowMeetingForm(true)}
-                      className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-lg hover:bg-brand-600 font-medium"
-                    >
-                      + Schedule
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={() => setShowMeetingForm(true)}
+                        className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-lg hover:bg-brand-600 font-medium"
+                      >
+                        + Schedule
+                      </button>
+                    )}
                   </div>
 
                   {showMeetingForm && (
@@ -589,12 +599,14 @@ export default function Investor360Drawer({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-ink-700">Tasks</h3>
-                    <button
-                      onClick={() => setShowTaskForm(true)}
-                      className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-lg hover:bg-brand-600 font-medium"
-                    >
-                      + Add Task
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={() => setShowTaskForm(true)}
+                        className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-lg hover:bg-brand-600 font-medium"
+                      >
+                        + Add Task
+                      </button>
+                    )}
                   </div>
 
                   {showTaskForm && (
@@ -671,12 +683,14 @@ export default function Investor360Drawer({
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-ink-700">Notes</h3>
-                    <button
-                      onClick={() => setShowNoteForm(true)}
-                      className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-lg hover:bg-brand-600 font-medium"
-                    >
-                      + Add Note
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={() => setShowNoteForm(true)}
+                        className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-lg hover:bg-brand-600 font-medium"
+                      >
+                        + Add Note
+                      </button>
+                    )}
                   </div>
 
                   {showNoteForm && (

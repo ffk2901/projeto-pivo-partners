@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-auth";
 import { getTeam, updateTeamMember } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  if (auth instanceof NextResponse) return auth;
   try {
     const team = await getTeam();
     return NextResponse.json(team);
@@ -16,6 +19,8 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     if (!body.team_id) {

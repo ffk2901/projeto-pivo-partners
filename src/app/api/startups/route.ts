@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-auth";
 import {
   getStartups,
   createStartup,
@@ -9,7 +10,9 @@ import type { Startup } from "@/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireAdmin(request);
+  if (auth instanceof NextResponse) return auth;
   try {
     const startups = await getStartups();
     return NextResponse.json(startups);
@@ -22,6 +25,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     const startup: Startup = {
@@ -53,6 +58,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const body = await req.json();
     if (!body.startup_id) {

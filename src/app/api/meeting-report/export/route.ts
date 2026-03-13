@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/api-auth";
 import {
   getProjectInvestors, getInvestors, getProjectNotes, getTasks,
   getMeetings, getProjects, getStartups, getTeam,
@@ -9,6 +10,8 @@ import * as XLSX from "xlsx";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (auth instanceof NextResponse) return auth;
   try {
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("project_id");

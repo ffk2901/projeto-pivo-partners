@@ -23,62 +23,62 @@ function put<T>(url: string, data: unknown): Promise<T> {
   });
 }
 
-export function api() {
+export function api(prefix = "/api") {
   return {
-    getTeam: () => fetchJson<import("@/types").TeamMember[]>("/api/team"),
+    getTeam: () => fetchJson<import("@/types").TeamMember[]>(`${prefix}/team`),
 
     // Startups
-    getStartups: () => fetchJson<import("@/types").Startup[]>("/api/startups"),
-    createStartup: (d: Partial<import("@/types").Startup>) => post<import("@/types").Startup>("/api/startups", d),
-    updateStartup: (d: Partial<import("@/types").Startup>) => put<import("@/types").Startup>("/api/startups", d),
+    getStartups: () => fetchJson<import("@/types").Startup[]>(`${prefix}/startups`),
+    createStartup: (d: Partial<import("@/types").Startup>) => post<import("@/types").Startup>(`${prefix}/startups`, d),
+    updateStartup: (d: Partial<import("@/types").Startup>) => put<import("@/types").Startup>(`${prefix}/startups`, d),
 
     // Projects
     getProjects: (startupId?: string) => {
-      const url = startupId ? `/api/projects?startup_id=${startupId}` : "/api/projects";
+      const url = startupId ? `${prefix}/projects?startup_id=${startupId}` : `${prefix}/projects`;
       return fetchJson<import("@/types").Project[]>(url);
     },
-    createProject: (d: Partial<import("@/types").Project>) => post<import("@/types").Project>("/api/projects", d),
-    updateProject: (d: Partial<import("@/types").Project>) => put<import("@/types").Project>("/api/projects", d),
+    createProject: (d: Partial<import("@/types").Project>) => post<import("@/types").Project>(`${prefix}/projects`, d),
+    updateProject: (d: Partial<import("@/types").Project>) => put<import("@/types").Project>(`${prefix}/projects`, d),
 
     // Tasks
-    getTasks: () => fetchJson<import("@/types").Task[]>("/api/tasks"),
-    createTask: (d: Partial<import("@/types").Task>) => post<import("@/types").Task>("/api/tasks", d),
-    updateTask: (d: Partial<import("@/types").Task>) => put<import("@/types").Task>("/api/tasks", d),
+    getTasks: () => fetchJson<import("@/types").Task[]>(`${prefix}/tasks`),
+    createTask: (d: Partial<import("@/types").Task>) => post<import("@/types").Task>(`${prefix}/tasks`, d),
+    updateTask: (d: Partial<import("@/types").Task>) => put<import("@/types").Task>(`${prefix}/tasks`, d),
 
     // Investors
-    getInvestors: () => fetchJson<import("@/types").Investor[]>("/api/investors"),
-    createInvestor: (d: Partial<import("@/types").Investor>) => post<import("@/types").Investor>("/api/investors", d),
-    updateInvestor: (d: Partial<import("@/types").Investor>) => put<import("@/types").Investor>("/api/investors", d),
+    getInvestors: () => fetchJson<import("@/types").Investor[]>(`${prefix}/investors`),
+    createInvestor: (d: Partial<import("@/types").Investor>) => post<import("@/types").Investor>(`${prefix}/investors`, d),
+    updateInvestor: (d: Partial<import("@/types").Investor>) => put<import("@/types").Investor>(`${prefix}/investors`, d),
     deleteInvestor: (investorId: string) =>
-      fetchJson<{ success: boolean }>(`/api/investors?investor_id=${investorId}`, { method: "DELETE" }),
+      fetchJson<{ success: boolean }>(`${prefix}/investors?investor_id=${investorId}`, { method: "DELETE" }),
 
     // Project-Investors
     getProjectInvestors: (projectId?: string) => {
-      const url = projectId ? `/api/project-investors?project_id=${projectId}` : "/api/project-investors";
+      const url = projectId ? `${prefix}/project-investors?project_id=${projectId}` : `${prefix}/project-investors`;
       return fetchJson<import("@/types").ProjectInvestor[]>(url);
     },
     createProjectInvestor: (d: Partial<import("@/types").ProjectInvestor>) =>
-      post<import("@/types").ProjectInvestor>("/api/project-investors", d),
+      post<import("@/types").ProjectInvestor>(`${prefix}/project-investors`, d),
     updateProjectInvestor: (d: Partial<import("@/types").ProjectInvestor>) =>
-      put<import("@/types").ProjectInvestor>("/api/project-investors", d),
+      put<import("@/types").ProjectInvestor>(`${prefix}/project-investors`, d),
     deleteProjectInvestor: (linkId: string) =>
-      fetchJson<{ success: boolean }>(`/api/project-investors?link_id=${linkId}`, { method: "DELETE" }),
+      fetchJson<{ success: boolean }>(`${prefix}/project-investors?link_id=${linkId}`, { method: "DELETE" }),
 
     // Startup-Investors (legacy)
     getStartupInvestors: (startupId?: string) => {
-      const url = startupId ? `/api/startup-investors?startup_id=${startupId}` : "/api/startup-investors";
+      const url = startupId ? `${prefix}/startup-investors?startup_id=${startupId}` : `${prefix}/startup-investors`;
       return fetchJson<import("@/types").StartupInvestor[]>(url);
     },
     createStartupInvestor: (d: Partial<import("@/types").StartupInvestor>) =>
-      post<import("@/types").StartupInvestor>("/api/startup-investors", d),
+      post<import("@/types").StartupInvestor>(`${prefix}/startup-investors`, d),
     updateStartupInvestor: (d: Partial<import("@/types").StartupInvestor>) =>
-      put<import("@/types").StartupInvestor>("/api/startup-investors", d),
+      put<import("@/types").StartupInvestor>(`${prefix}/startup-investors`, d),
 
     // Config
-    getConfig: () => fetchJson<{ config: import("@/types").ConfigRow[]; pipeline_stages: string[] }>("/api/config"),
+    getConfig: () => fetchJson<{ config: import("@/types").ConfigRow[]; pipeline_stages: string[] }>(`${prefix}/config`),
 
     // Team update
-    updateTeamMember: (d: Partial<import("@/types").TeamMember>) => put<import("@/types").TeamMember>("/api/team", d),
+    updateTeamMember: (d: Partial<import("@/types").TeamMember>) => put<import("@/types").TeamMember>(`${prefix}/team`, d),
 
     // Project Notes
     getProjectNotes: (projectId?: string, investorId?: string) => {
@@ -86,15 +86,15 @@ export function api() {
       if (projectId) params.set("project_id", projectId);
       if (investorId) params.set("investor_id", investorId);
       const qs = params.toString();
-      const url = qs ? `/api/project-notes?${qs}` : "/api/project-notes";
+      const url = qs ? `${prefix}/project-notes?${qs}` : `${prefix}/project-notes`;
       return fetchJson<import("@/types").ProjectNote[]>(url);
     },
     createProjectNote: (d: Partial<import("@/types").ProjectNote>) =>
-      post<import("@/types").ProjectNote>("/api/project-notes", d),
+      post<import("@/types").ProjectNote>(`${prefix}/project-notes`, d),
     updateProjectNote: (d: Partial<import("@/types").ProjectNote>) =>
-      put<import("@/types").ProjectNote>("/api/project-notes", d),
+      put<import("@/types").ProjectNote>(`${prefix}/project-notes`, d),
     deleteProjectNote: (noteId: string) =>
-      fetchJson<{ success: boolean }>(`/api/project-notes?note_id=${noteId}`, { method: "DELETE" }),
+      fetchJson<{ success: boolean }>(`${prefix}/project-notes?note_id=${noteId}`, { method: "DELETE" }),
 
     // Meetings
     getMeetings: (projectId?: string, investorId?: string) => {
@@ -102,15 +102,15 @@ export function api() {
       if (projectId) params.set("project_id", projectId);
       if (investorId) params.set("investor_id", investorId);
       const qs = params.toString();
-      const url = qs ? `/api/meetings?${qs}` : "/api/meetings";
+      const url = qs ? `${prefix}/meetings?${qs}` : `${prefix}/meetings`;
       return fetchJson<import("@/types").Meeting[]>(url);
     },
     createMeeting: (d: Partial<import("@/types").Meeting>) =>
-      post<import("@/types").Meeting>("/api/meetings", d),
+      post<import("@/types").Meeting>(`${prefix}/meetings`, d),
     updateMeeting: (d: Partial<import("@/types").Meeting>) =>
-      put<import("@/types").Meeting>("/api/meetings", d),
+      put<import("@/types").Meeting>(`${prefix}/meetings`, d),
     deleteMeeting: (meetingId: string) =>
-      fetchJson<{ success: boolean }>(`/api/meetings?meeting_id=${meetingId}`, { method: "DELETE" }),
+      fetchJson<{ success: boolean }>(`${prefix}/meetings?meeting_id=${meetingId}`, { method: "DELETE" }),
 
     // Activity Log
     getActivityLog: (projectId?: string, investorId?: string) => {
@@ -118,18 +118,18 @@ export function api() {
       if (projectId) params.set("project_id", projectId);
       if (investorId) params.set("investor_id", investorId);
       const qs = params.toString();
-      const url = qs ? `/api/activity-log?${qs}` : "/api/activity-log";
+      const url = qs ? `${prefix}/activity-log?${qs}` : `${prefix}/activity-log`;
       return fetchJson<import("@/types").ActivityLogEntry[]>(url);
     },
 
     // Meeting Report
     getMeetingReport: (projectId: string) =>
-      fetchJson<Record<string, unknown>>(`/api/meeting-report?project_id=${projectId}`),
+      fetchJson<Record<string, unknown>>(`${prefix}/meeting-report?project_id=${projectId}`),
 
     // Calendar Sync
     syncTaskToCalendar: (taskId: string) =>
-      post<{ success: boolean; task: import("@/types").Task; eventId?: string }>("/api/calendar-sync", { task_id: taskId }),
+      post<{ success: boolean; task: import("@/types").Task; eventId?: string }>(`${prefix}/calendar-sync`, { task_id: taskId }),
     unsyncTaskFromCalendar: (taskId: string) =>
-      post<{ success: boolean; task: import("@/types").Task }>("/api/calendar-sync", { task_id: taskId, action: "unsync" }),
+      post<{ success: boolean; task: import("@/types").Task }>(`${prefix}/calendar-sync`, { task_id: taskId, action: "unsync" }),
   };
 }

@@ -37,6 +37,8 @@ interface Props {
   meetings: Meeting[];
   onRefresh: () => Promise<void> | void;
   onOpenDrawer: (link: ProjectInvestor) => void;
+  readOnly?: boolean;
+  apiPrefix?: string;
 }
 
 // ── Sortable Card (Clean Design) ──
@@ -296,7 +298,7 @@ function applyStageMove(links: ProjectInvestor[], linkId: string, newStage: stri
 }
 
 // ── Main FunnelBoard ──
-export default function FunnelBoard({ projectId, links, investors, stages, team, notes, tasks, meetings, onRefresh, onOpenDrawer }: Props) {
+export default function FunnelBoard({ projectId, links, investors, stages, team, notes, tasks, meetings, onRefresh, onOpenDrawer, readOnly, apiPrefix }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -315,7 +317,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
   }
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: readOnly ? 99999 : 8 } }),
     useSensor(KeyboardSensor)
   );
 
@@ -380,7 +382,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
 
   const persistStageChange = useCallback((linkId: string, newStage: string, positionIndex: number, snapshotBeforeChange: ProjectInvestor[]) => {
     pendingSaves.current += 1;
-    api()
+    api(apiPrefix)
       .updateProjectInvestor({ link_id: linkId, stage: newStage, position_index: positionIndex })
       .then(() => onRefresh())
       .catch((err) => {
@@ -394,7 +396,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
 
   const persistReorder = useCallback((linkId: string, newIndex: number, snapshotBeforeChange: ProjectInvestor[]) => {
     pendingSaves.current += 1;
-    api()
+    api(apiPrefix)
       .updateProjectInvestor({ link_id: linkId, position_index: newIndex })
       .then(() => onRefresh())
       .catch((err) => {
@@ -543,7 +545,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
 
     try {
       pendingSaves.current += 1;
-      await api().createProjectInvestor({ project_id: projectId, investor_id: investorId });
+      await api(apiPrefix).createProjectInvestor({ project_id: projectId, investor_id: investorId });
       await onRefresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add investor";
@@ -593,12 +595,14 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
             </span>
           )}
         </div>
-        <button
-          onClick={() => setShowPicker(true)}
-          className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm"
-        >
-          + Add Investor
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => setShowPicker(true)}
+            className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm"
+          >
+            + Add Investor
+          </button>
+        )}
       </div>
 
       {/* Filter bar */}
@@ -751,12 +755,14 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
       {displayLinks.length === 0 && (
         <div className="mt-4 text-center py-12 bg-surface-50 rounded-2xl border border-dashed border-brand-300">
           <p className="text-ink-400 text-sm mb-2">No investors yet</p>
-          <button
-            onClick={() => setShowPicker(true)}
-            className="text-sm text-brand-500 hover:text-brand-700 font-medium transition-colors"
-          >
-            Add from directory
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => setShowPicker(true)}
+              className="text-sm text-brand-500 hover:text-brand-700 font-medium transition-colors"
+            >
+              Add from directory
+            </button>
+          )}
         </div>
       )}
 
