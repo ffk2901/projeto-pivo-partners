@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { href: "/startups", label: "Startups", icon: "S" },
   { href: "/projects", label: "Projects", icon: "P" },
   { href: "/investors", label: "Investors", icon: "I" },
+  { href: "/admin/users", label: "Users", icon: "U" },
 ];
 
 export default function Sidebar() {
@@ -37,8 +38,17 @@ export default function Sidebar() {
           );
         })}
       </nav>
-      <div className="px-5 py-4 border-t border-brand-800/40">
-        <Link href="/health" className="text-xs text-brand-500 hover:text-brand-300 transition-colors">System Health</Link>
+      <div className="px-5 py-4 border-t border-brand-800/40 space-y-2">
+        <Link href="/health" className="block text-xs text-brand-500 hover:text-brand-300 transition-colors">System Health</Link>
+        <button
+          onClick={async () => {
+            await fetch("/api/auth/logout", { method: "POST" });
+            window.location.href = "/login";
+          }}
+          className="block text-xs text-brand-500 hover:text-brand-300 transition-colors"
+        >
+          Logout
+        </button>
       </div>
     </aside>
   );

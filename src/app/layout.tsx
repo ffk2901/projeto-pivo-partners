@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import LayoutShell from "@/components/LayoutShell";
 
 export const metadata: Metadata = {
   title: "Pivo Partners",
@@ -15,8 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-surface-100 text-ink-800 min-h-screen flex">
-        <Sidebar />
-        <main className="flex-1 overflow-auto">{children}</main>
+        <LayoutShell>{children}</LayoutShell>
       </body>
     </html>
   );

@@ -12,6 +12,8 @@ interface Props {
   team: TeamMember[];
   startups: Startup[];
   onRefresh: () => void;
+  readOnly?: boolean;
+  apiPrefix?: string;
 }
 
 type View = "byPerson" | "list";
@@ -22,7 +24,7 @@ const PRIORITY_COLORS = {
   low: "bg-ink-100 text-ink-500",
 };
 
-export default function TasksTab({ startupId, tasks, team, startups, onRefresh }: Props) {
+export default function TasksTab({ startupId, tasks, team, startups, onRefresh, readOnly, apiPrefix }: Props) {
   const [view, setView] = useState<View>("byPerson");
   const [showAdd, setShowAdd] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -35,19 +37,19 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
   const filteredTasks = filterStatus === "all" ? tasks : tasks.filter((t) => t.status === filterStatus);
 
   const handleCreate = async (data: Partial<Task>) => {
-    await api().createTask({ ...data, startup_id: startupId });
+    await api(apiPrefix).createTask({ ...data, startup_id: startupId });
     setShowAdd(false);
     onRefresh();
   };
 
   const handleUpdate = async (data: Partial<Task>) => {
-    await api().updateTask(data);
+    await api(apiPrefix).updateTask(data);
     setEditingTask(null);
     onRefresh();
   };
 
   const handleToggle = async (task: Task) => {
-    await api().updateTask({
+    await api(apiPrefix).updateTask({
       task_id: task.task_id,
       status: task.status === "done" ? "todo" : "done",
     });
@@ -58,7 +60,7 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
     setSyncingTask(task.task_id);
     setSyncError(null);
     try {
-      await api().syncTaskToCalendar(task.task_id);
+      await api(apiPrefix).syncTaskToCalendar(task.task_id);
       onRefresh();
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : "Calendar sync failed");
@@ -71,7 +73,7 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
     setSyncingTask(task.task_id);
     setSyncError(null);
     try {
-      await api().unsyncTaskFromCalendar(task.task_id);
+      await api(apiPrefix).unsyncTaskFromCalendar(task.task_id);
       onRefresh();
     } catch (err) {
       setSyncError(err instanceof Error ? err.message : "Calendar unsync failed");
@@ -93,12 +95,13 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
     <div key={task.task_id} className="bg-surface-0 border border-brand-200/60 rounded-xl px-3 py-2.5 hover:border-brand-400 transition-colors">
       <div className="flex items-start gap-2">
         <button
-          onClick={() => handleToggle(task)}
+          onClick={() => !readOnly && handleToggle(task)}
+          disabled={readOnly}
           className={`mt-0.5 w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-colors ${
             task.status === "done"
               ? "border-brand-500 bg-brand-500"
               : "border-brand-300 hover:border-brand-500"
-          }`}
+          } ${readOnly ? "cursor-default opacity-70" : ""}`}
         >
           {task.status === "done" && <span className="text-white text-xs">&#10003;</span>}
         </button>
@@ -107,9 +110,11 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
             <p className={`text-sm leading-snug ${task.status === "done" ? "text-ink-400 line-through" : "text-ink-800"}`}>
               {task.title}
             </p>
-            <button onClick={() => setEditingTask(task)} className="text-ink-300 hover:text-ink-500 text-xs ml-2 flex-shrink-0 transition-colors">
-              edit
-            </button>
+            {!readOnly && (
+              <button onClick={() => setEditingTask(task)} className="text-ink-300 hover:text-ink-500 text-xs ml-2 flex-shrink-0 transition-colors">
+                edit
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
             {task.due_date && (
@@ -183,10 +188,12 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh }
             <option value="done">Done</option>
           </select>
         </div>
-        <button onClick={() => setShowAdd(true)}
-          className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm">
-          + Add Task
-        </button>
+        {!readOnly && (
+          <button onClick={() => setShowAdd(true)}
+            className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm">
+            + Add Task
+          </button>
+        )}
       </div>
 
       {syncError && (

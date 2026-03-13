@@ -14,9 +14,11 @@ interface Props {
   piLinks: ProjectInvestor[];
   meetings: Meeting[];
   onRefresh: () => void;
+  readOnly?: boolean;
+  apiPrefix?: string;
 }
 
-export default function NotesTable({ projectId, notes, team, investors, piLinks, meetings, onRefresh }: Props) {
+export default function NotesTable({ projectId, notes, team, investors, piLinks, meetings, onRefresh, readOnly, apiPrefix }: Props) {
   // Filters
   const [filterInvestor, setFilterInvestor] = useState("");
   const [filterAuthor, setFilterAuthor] = useState("");
@@ -135,7 +137,7 @@ export default function NotesTable({ projectId, notes, team, investors, piLinks,
     setSaving(true); setError(null);
     try {
       if (editingNote) {
-        await api().updateProjectNote({
+        await api(apiPrefix).updateProjectNote({
           note_id: editingNote.note_id,
           title: formTitle, content: formContent, author_id: formAuthor,
           investor_id: formInvestor, note_type: formType, next_step: formNextStep,
@@ -143,7 +145,7 @@ export default function NotesTable({ projectId, notes, team, investors, piLinks,
         });
         setEditingNote(null);
       } else {
-        await api().createProjectNote({
+        await api(apiPrefix).createProjectNote({
           project_id: projectId,
           title: formTitle, content: formContent, author_id: formAuthor,
           investor_id: formInvestor, note_type: formType, next_step: formNextStep,
@@ -162,7 +164,7 @@ export default function NotesTable({ projectId, notes, team, investors, piLinks,
   const handleDelete = async (noteId: string) => {
     setSaving(true);
     try {
-      await api().deleteProjectNote(noteId);
+      await api(apiPrefix).deleteProjectNote(noteId);
       setDeleteConfirm(null);
       onRefresh();
     } catch (err) {
@@ -261,9 +263,11 @@ export default function NotesTable({ projectId, notes, team, investors, piLinks,
             <button onClick={() => setViewMode("list")} className={`px-2 py-1 text-[10px] font-medium ${viewMode === "list" ? "bg-brand-500 text-white" : "text-ink-500 hover:bg-brand-50"}`}>List</button>
           </div>
         </div>
-        <button onClick={openCreate} className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm">
-          + New Note
-        </button>
+        {!readOnly && (
+          <button onClick={openCreate} className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm">
+            + New Note
+          </button>
+        )}
       </div>
 
       {/* Filters */}
@@ -319,7 +323,7 @@ export default function NotesTable({ projectId, notes, team, investors, piLinks,
                   <th className="text-left px-3 py-2.5 text-ink-400 font-medium uppercase tracking-wide">Author</th>
                   <th className="text-left px-3 py-2.5 text-ink-400 font-medium uppercase tracking-wide">Next Step</th>
                   <th className="text-left px-3 py-2.5 text-ink-400 font-medium uppercase tracking-wide">Follow-up</th>
-                  <th className="text-right px-3 py-2.5 text-ink-400 font-medium uppercase tracking-wide">Actions</th>
+                  {!readOnly && <th className="text-right px-3 py-2.5 text-ink-400 font-medium uppercase tracking-wide">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -349,10 +353,12 @@ export default function NotesTable({ projectId, notes, team, investors, piLinks,
                           <span className={isOverdue ? "text-red-600 font-medium" : "text-ink-500"}>{formatDate(note.follow_up_date)}</span>
                         ) : <span className="text-ink-300">—</span>}
                       </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <button onClick={() => openEdit(note)} className="text-ink-400 hover:text-brand-600 px-1.5 py-0.5 rounded hover:bg-brand-50">Edit</button>
-                        <button onClick={() => setDeleteConfirm(note.note_id)} className="text-ink-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 ml-1">Delete</button>
-                      </td>
+                      {!readOnly && (
+                        <td className="px-3 py-2.5 text-right">
+                          <button onClick={() => openEdit(note)} className="text-ink-400 hover:text-brand-600 px-1.5 py-0.5 rounded hover:bg-brand-50">Edit</button>
+                          <button onClick={() => setDeleteConfirm(note.note_id)} className="text-ink-400 hover:text-red-600 px-1.5 py-0.5 rounded hover:bg-red-50 ml-1">Delete</button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -389,10 +395,12 @@ export default function NotesTable({ projectId, notes, team, investors, piLinks,
                       {note.updated_at !== note.created_at && <span className="italic">edited</span>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    <button onClick={() => openEdit(note)} className="text-xs text-ink-400 hover:text-brand-600 px-2 py-1 rounded-lg hover:bg-brand-50">Edit</button>
-                    <button onClick={() => setDeleteConfirm(note.note_id)} className="text-xs text-ink-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50">Delete</button>
-                  </div>
+                  {!readOnly && (
+                    <div className="flex items-center gap-1 ml-2">
+                      <button onClick={() => openEdit(note)} className="text-xs text-ink-400 hover:text-brand-600 px-2 py-1 rounded-lg hover:bg-brand-50">Edit</button>
+                      <button onClick={() => setDeleteConfirm(note.note_id)} className="text-xs text-ink-400 hover:text-red-600 px-2 py-1 rounded-lg hover:bg-red-50">Delete</button>
+                    </div>
+                  )}
                 </div>
                 <p className="text-sm text-ink-600 whitespace-pre-wrap leading-relaxed">{note.content}</p>
                 {note.next_step && <p className="text-xs text-brand-500 mt-2">Next: {note.next_step}</p>}

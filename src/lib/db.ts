@@ -11,6 +11,8 @@ import type {
   ProjectNote,
   Meeting,
   ActivityLogEntry,
+  User,
+  UserProjectAccess,
 } from "@/types";
 import { FUNNEL_STAGES } from "@/types";
 
@@ -323,6 +325,69 @@ export async function createActivityLog(entry: ActivityLogEntry): Promise<void> 
   const { error } = await getSupabase().from("activity_log").insert(entry);
   if (error) throw new Error(error.message);
   invalidateCache("activity_log");
+}
+
+// ============================================
+// Users
+// ============================================
+
+export async function getUsers(): Promise<User[]> {
+  const k = "users"; const c = getCached<User[]>(k); if (c) return c;
+  const { data, error } = await getSupabase().from("users").select("*");
+  if (error) throw new Error(error.message);
+  const result = sanitizeRows((data || []) as User[]);
+  setCache(k, result);
+  return result;
+}
+
+export async function getUserByEmail(email: string): Promise<User | null> {
+  const users = await getUsers();
+  return users.find((u) => u.email.toLowerCase() === email.toLowerCase()) || null;
+}
+
+export async function getUserById(userId: string): Promise<User | null> {
+  const users = await getUsers();
+  return users.find((u) => u.user_id === userId) || null;
+}
+
+export async function createUser(user: User): Promise<void> {
+  const { error } = await getSupabase().from("users").insert(user);
+  if (error) throw new Error(error.message);
+  invalidateCache("users");
+}
+
+export async function updateUser(user: Partial<User> & { user_id: string }): Promise<void> {
+  const { error } = await getSupabase().from("users").update(user).eq("user_id", user.user_id);
+  if (error) throw new Error(error.message);
+  invalidateCache("users");
+}
+
+// ============================================
+// User Project Access
+// ============================================
+
+export async function getUserProjectAccess(userId?: string): Promise<UserProjectAccess[]> {
+  const k = userId ? `user_project_access_${userId}` : "user_project_access";
+  const c = getCached<UserProjectAccess[]>(k); if (c) return c;
+  let query = getSupabase().from("user_project_access").select("*");
+  if (userId) query = query.eq("user_id", userId);
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  const result = sanitizeRows((data || []) as UserProjectAccess[]);
+  setCache(k, result);
+  return result;
+}
+
+export async function createUserProjectAccess(access: UserProjectAccess): Promise<void> {
+  const { error } = await getSupabase().from("user_project_access").insert(access);
+  if (error) throw new Error(error.message);
+  invalidateCache("user_project_access");
+}
+
+export async function deleteUserProjectAccess(accessId: string): Promise<void> {
+  const { error } = await getSupabase().from("user_project_access").delete().eq("access_id", accessId);
+  if (error) throw new Error(error.message);
+  invalidateCache("user_project_access");
 }
 
 // ============================================

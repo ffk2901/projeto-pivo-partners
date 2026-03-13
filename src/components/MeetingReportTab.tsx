@@ -59,9 +59,10 @@ interface ReportData {
 
 interface Props {
   projectId: string;
+  apiPrefix?: string;
 }
 
-export default function MeetingReportTab({ projectId }: Props) {
+export default function MeetingReportTab({ projectId, apiPrefix }: Props) {
   const [report, setReport] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -71,7 +72,7 @@ export default function MeetingReportTab({ projectId }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const data = await api().getMeetingReport(projectId);
+      const data = await api(apiPrefix).getMeetingReport(projectId);
       setReport(data as unknown as ReportData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load report");
@@ -87,7 +88,8 @@ export default function MeetingReportTab({ projectId }: Props) {
   const handleExport = async () => {
     setExporting(true);
     try {
-      const response = await fetch(`/api/meeting-report/export?project_id=${projectId}`);
+      const exportPrefix = apiPrefix || "/api";
+      const response = await fetch(`${exportPrefix}/meeting-report/export?project_id=${projectId}`);
       if (!response.ok) throw new Error("Export failed");
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);

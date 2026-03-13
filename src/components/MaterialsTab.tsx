@@ -7,6 +7,8 @@ import type { Startup } from "@/types";
 interface Props {
   startup: Startup;
   onRefresh: () => void;
+  readOnly?: boolean;
+  apiPrefix?: string;
 }
 
 const MATERIALS = [
@@ -18,7 +20,7 @@ const MATERIALS = [
 
 type MaterialKey = (typeof MATERIALS)[number]["key"];
 
-export default function MaterialsTab({ startup, onRefresh }: Props) {
+export default function MaterialsTab({ startup, onRefresh, readOnly, apiPrefix }: Props) {
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<Record<MaterialKey, string>>({
     pitch_deck_url: startup.pitch_deck_url,
@@ -32,7 +34,7 @@ export default function MaterialsTab({ startup, onRefresh }: Props) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api().updateStartup({ startup_id: startup.startup_id, ...values, notes });
+      await api(apiPrefix).updateStartup({ startup_id: startup.startup_id, ...values, notes });
       setEditing(false);
       onRefresh();
     } finally {
@@ -48,7 +50,7 @@ export default function MaterialsTab({ startup, onRefresh }: Props) {
         <p className="text-sm text-ink-500">
           {Object.values(values).filter(Boolean).length}/4 materials linked
         </p>
-        {!editing && (
+        {!editing && !readOnly && (
           <button onClick={() => setEditing(true)}
             className="px-3 py-1.5 text-sm text-brand-500 hover:text-brand-700 hover:bg-brand-50 rounded-xl transition-colors font-medium">
             Edit

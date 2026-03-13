@@ -192,6 +192,27 @@ export interface ConfigRow {
   value: string;
 }
 
+// Auth types
+export interface User {
+  user_id: string;
+  email: string;
+  password_hash: string;
+  name: string;
+  role: "admin" | "client";
+  status: "active" | "inactive" | "pending";
+  created_at: string;
+  last_login: string;
+}
+
+export interface UserProjectAccess {
+  access_id: string;
+  user_id: string;
+  project_id: string;
+  permission_level: "view" | "edit";
+  granted_by: string;
+  granted_at: string;
+}
+
 // ============================================
 // Derived / UI types
 // ============================================
