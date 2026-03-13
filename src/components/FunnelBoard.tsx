@@ -200,6 +200,7 @@ function StageColumn({
   meetings,
   isOver,
   onOpenDrawer,
+  expanded,
 }: {
   stage: string;
   cards: ProjectInvestor[];
@@ -210,6 +211,7 @@ function StageColumn({
   meetings: Meeting[];
   isOver: boolean;
   onOpenDrawer: (link: ProjectInvestor) => void;
+  expanded?: boolean;
 }) {
   const { setNodeRef } = useDroppable({ id: `stage:${stage}` });
   const getInvestor = (id: string) => investors.find((i) => i.investor_id === id);
@@ -225,7 +227,9 @@ function StageColumn({
 
   return (
     <div
-      className={`flex-shrink-0 w-64 rounded-2xl border transition-colors duration-200 ${
+      className={`rounded-2xl border transition-colors duration-200 ${
+        expanded ? "flex-1 min-w-[180px]" : "flex-shrink-0 w-64"
+      } ${
         isOver ? "border-brand-500 bg-brand-100/40" : "border-brand-200/60 bg-surface-50"
       }`}
     >
@@ -754,7 +758,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="flex gap-3 overflow-x-auto pb-4 funnel-scroll">
+        <div className={`flex gap-3 pb-4 funnel-scroll ${isFullscreen ? "overflow-y-auto" : "overflow-x-auto"}`}>
           {cardsByStage.map(({ stage, cards }) => (
             <StageColumn
               key={stage}
@@ -767,6 +771,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
               meetings={meetings}
               isOver={overStage === stage}
               onOpenDrawer={onOpenDrawer}
+              expanded={isFullscreen}
             />
           ))}
         </div>
@@ -806,7 +811,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
 
   if (isFullscreen) {
     return (
-      <div className="fixed inset-0 z-50 bg-surface-0 flex flex-col overflow-hidden">
+      <div className="fixed inset-0 z-50 bg-surface-100 flex flex-col overflow-hidden">
         {/* Fullscreen header */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-brand-200/60 bg-surface-50 flex-shrink-0">
           <h2 className="text-sm font-semibold text-ink-700">Pipeline — Fullscreen</h2>
