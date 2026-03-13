@@ -811,7 +811,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
 
   if (isFullscreen) {
     return (
-      <div className="fixed inset-0 z-50 bg-surface-0 flex flex-col overflow-hidden">
+      <div className="fixed inset-0 z-50 bg-surface-100 flex flex-col overflow-hidden">
         {/* Fullscreen header */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-brand-200/60 bg-surface-50 flex-shrink-0">
           <h2 className="text-sm font-semibold text-ink-700">Pipeline — Fullscreen</h2>
