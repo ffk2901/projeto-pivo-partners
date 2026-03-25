@@ -133,6 +133,19 @@ APP_PASSWORD=changeme123
 
 **Important:** The `GOOGLE_PRIVATE_KEY` value must have `\n` for newlines (as shown in the JSON file).
 
+### Google Calendar Setup
+
+To enable task-to-calendar sync:
+
+1. **Enable the Google Calendar API** in [Google Cloud Console](https://console.cloud.google.com/apis/library/calendar-json.googleapis.com) (same project as your service account)
+2. **Configure calendar access** — choose one:
+   - **Shared Calendar (recommended for teams):** Create a shared Google Calendar, then share it with the service account email (`GOOGLE_SERVICE_ACCOUNT_EMAIL`) with **Editor** permission. Set `GOOGLE_CALENDAR_ID` to that calendar's ID (found in Calendar Settings > Integrate calendar).
+   - **Attendee invites:** Leave `GOOGLE_CALENDAR_ID` empty. Events will be created on the service account's primary calendar and sent as invites to the attendee's email. The attendee sees the event on their own calendar.
+3. **For Google Workspace domains:** If using domain-wide delegation, the service account needs the `https://www.googleapis.com/auth/calendar` scope enabled in the Admin Console under Security > API Controls > Domain-wide Delegation.
+4. **Team member emails:** Each team member must have a valid email address in the `team` table. Tasks can only sync to calendar if the task owner has an email configured.
+
+Check calendar connectivity at [/health](http://localhost:3000/health) — it shows both database and calendar status.
+
 ### 5. Install and Run
 
 ```bash

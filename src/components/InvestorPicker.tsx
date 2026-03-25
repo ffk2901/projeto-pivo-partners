@@ -28,7 +28,9 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
       (i) =>
         i.investor_name.toLowerCase().includes(q) ||
         i.tags.toLowerCase().includes(q) ||
-        i.email.toLowerCase().includes(q)
+        i.email.toLowerCase().includes(q) ||
+        (i.company_affiliation || "").toLowerCase().includes(q) ||
+        (i.description || "").toLowerCase().includes(q)
     );
   }, [available, search]);
 
@@ -104,6 +106,7 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-ink-800 group-hover:text-brand-700">
+                      <span className="mr-1">{inv.investor_type === "individual" ? "\uD83D\uDC64" : "\uD83C\uDFE2"}</span>
                       {inv.investor_name}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">

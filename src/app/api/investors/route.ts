@@ -34,10 +34,13 @@ export async function POST(req: NextRequest) {
     const investor: Investor = {
       investor_id: generateId("inv"),
       investor_name: body.investor_name || "",
+      investor_type: body.investor_type || "fund",
       tags: body.tags || "",
       email: body.email || "",
       notes: body.notes || "",
       origin: body.origin || "",
+      company_affiliation: body.company_affiliation || "",
+      description: body.description || "",
     };
 
     if (!investor.investor_name) {
