@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { Investor, ProjectInvestor, Project, Startup } from "@/types";
+import type { Investor, ProjectInvestor, Project, Startup, MeetingNote } from "@/types";
+import { SENTIMENT_CONFIG, MEETING_TYPE_LABELS } from "@/types";
 import Modal from "@/components/Modal";
 
 export default function InvestorsPage() {
@@ -11,6 +12,7 @@ export default function InvestorsPage() {
   const [piLinks, setPiLinks] = useState<ProjectInvestor[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [startups, setStartups] = useState<Startup[]>([]);
+  const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -35,16 +37,18 @@ export default function InvestorsPage() {
 
   const loadData = useCallback(async () => {
     try {
-      const [inv, pi, prj, st] = await Promise.all([
+      const [inv, pi, prj, st, mn] = await Promise.all([
         api().getInvestors(),
         api().getProjectInvestors(),
         api().getProjects(),
         api().getStartups(),
+        api().getMeetingNotes(),
       ]);
       setInvestors(inv);
       setPiLinks(pi);
       setProjects(prj);
       setStartups(st);
+      setMeetingNotes(mn);
     } catch (err) {
       console.error("Failed to load:", err);
     } finally {
@@ -382,6 +386,42 @@ export default function InvestorsPage() {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Interaction History */}
+                <div>
+                  <p className="text-xs text-ink-400 uppercase tracking-wide mb-2">Interaction History</p>
+                  {(() => {
+                    const investorNotes = meetingNotes
+                      .filter((n) => n.investor_id === showDetail.investor_id)
+                      .sort((a, b) => (b.meeting_date || b.created_at).localeCompare(a.meeting_date || a.created_at));
+                    if (investorNotes.length === 0) {
+                      return <p className="text-sm text-ink-300 italic">No meeting notes for this investor.</p>;
+                    }
+                    return (
+                      <div className="space-y-2">
+                        {investorNotes.map((note) => {
+                          const proj = projects.find((p) => p.project_id === note.project_id);
+                          return (
+                            <div key={note.note_id} className="bg-surface-50 border border-brand-200/60 rounded-xl px-4 py-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${SENTIMENT_CONFIG[note.sentiment]?.dot || "bg-amber-400"}`}></div>
+                                <span className="text-xs text-ink-400">{note.meeting_date}</span>
+                                {proj && <span className="text-xs text-brand-600 font-medium">{proj.project_name}</span>}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${SENTIMENT_CONFIG[note.sentiment]?.bg} ${SENTIMENT_CONFIG[note.sentiment]?.color}`}>
+                                  {SENTIMENT_CONFIG[note.sentiment]?.label}
+                                </span>
+                              </div>
+                              <p className="text-sm font-medium text-ink-800">{note.subject}</p>
+                              {note.summary && (
+                                <p className="text-xs text-ink-500 mt-0.5 line-clamp-2">{note.summary}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             )}
