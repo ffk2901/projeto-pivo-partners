@@ -19,9 +19,10 @@ import TasksTab from "@/components/TasksTab";
 import MaterialsTab from "@/components/MaterialsTab";
 import NotesTable from "@/components/NotesTable";
 import MeetingReportTab from "@/components/MeetingReportTab";
+import MeetingNotesTab from "@/components/MeetingNotesTab";
 import Investor360Drawer from "@/components/Investor360Drawer";
 
-type Tab = "pipeline" | "tasks" | "notes" | "materials" | "report";
+type Tab = "pipeline" | "tasks" | "notes" | "meeting-notes" | "materials" | "report";
 
 export default function ProjectDetailPage() {
   const params = useParams();
@@ -157,6 +158,7 @@ export default function ProjectDetailPage() {
     { key: "pipeline", label: `Funnel (${piLinks.length})` },
     { key: "tasks", label: `Tasks (${openTaskCount})` },
     { key: "notes", label: `Notes (${notes.length})` },
+    { key: "meeting-notes", label: "Meeting Notes" },
     { key: "materials", label: "Materials" },
     { key: "report", label: "Meeting Report" },
   ];
@@ -252,6 +254,14 @@ export default function ProjectDetailPage() {
           investors={investors}
           piLinks={piLinks}
           meetings={meetings}
+          onRefresh={loadData}
+        />
+      )}
+      {tab === "meeting-notes" && (
+        <MeetingNotesTab
+          projectId={projectId}
+          startupId={project.startup_id}
+          investors={investors}
           onRefresh={loadData}
         />
       )}

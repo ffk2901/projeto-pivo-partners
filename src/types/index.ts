@@ -79,10 +79,13 @@ export interface ProjectNote {
 export interface Investor {
   investor_id: string;
   investor_name: string;
+  investor_type: "fund" | "individual" | "";
   tags: string; // semicolon-separated
   email: string;
   notes: string;
   origin: "br" | "intl" | "";
+  company_affiliation: string;
+  description: string;
 }
 
 // Funnel stages
@@ -201,7 +204,7 @@ export interface User {
   role: "admin" | "client";
   status: "active" | "inactive" | "pending";
   created_at: string;
-  last_login: string;
+  last_login: string | null;
 }
 
 export interface UserProjectAccess {
@@ -211,6 +214,69 @@ export interface UserProjectAccess {
   permission_level: "view" | "edit";
   granted_by: string;
   granted_at: string;
+}
+
+// ============================================
+// Meeting Notes & Calendar types
+// ============================================
+
+export type MeetingType = "call" | "in_person" | "video" | "email" | "other";
+export type Sentiment = "very_positive" | "positive" | "neutral" | "negative";
+
+export const SENTIMENT_CONFIG: Record<Sentiment, { label: string; color: string; bg: string; dot: string }> = {
+  very_positive: { label: "Very Positive", color: "text-emerald-700", bg: "bg-emerald-100", dot: "bg-emerald-500" },
+  positive: { label: "Positive", color: "text-green-700", bg: "bg-green-100", dot: "bg-green-500" },
+  neutral: { label: "Neutral", color: "text-amber-700", bg: "bg-amber-100", dot: "bg-amber-400" },
+  negative: { label: "Negative", color: "text-red-700", bg: "bg-red-100", dot: "bg-red-500" },
+};
+
+export const MEETING_TYPE_LABELS: Record<MeetingType, string> = {
+  call: "Call",
+  in_person: "In Person",
+  video: "Video",
+  email: "Email",
+  other: "Other",
+};
+
+export interface MeetingNote {
+  note_id: string;
+  investor_id: string;
+  project_id: string;
+  startup_id: string;
+  meeting_date: string;
+  meeting_type: MeetingType;
+  subject: string;
+  attendees: string;
+  summary: string;
+  action_items: string;
+  sentiment: Sentiment;
+  calendar_event_id: string;
+  transcription_url: string;
+  source: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface CalendarEvent {
+  event_id: string;
+  title: string;
+  start: string;
+  end: string;
+  attendees: string[];
+  description: string;
+  meet_link?: string;
+  // Enriched by CRM:
+  matched_investor?: Investor;
+  matched_project?: Project;
+  has_meeting_note?: boolean;
+}
+
+export interface AuthToken {
+  team_id: string;
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  google_email: string;
 }
 
 // ============================================

@@ -130,14 +130,22 @@ export default function TasksTab({ startupId, tasks, team, startups, onRefresh, 
             {task.status === "doing" && (
               <span className="text-xs px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-700">in progress</span>
             )}
-            {task.sync_status && task.sync_status !== "none" && (
-              <span className={`text-xs px-1.5 py-0.5 rounded-md ${SYNC_BADGE[task.sync_status] || ""}`}>
-                {task.sync_status === "synced" ? "Cal synced" : task.sync_status === "failed" ? "Sync failed" : "Pending"}
+            {task.sync_status === "synced" && (
+              <span className="text-xs px-1.5 py-0.5 rounded-md bg-emerald-100 text-emerald-700" title="Synced to Google Calendar">
+                Synced
+              </span>
+            )}
+            {task.sync_status === "failed" && (
+              <span className="text-xs px-1.5 py-0.5 rounded-md bg-red-100 text-red-700" title="Calendar sync failed">
+                Sync Failed
               </span>
             )}
             {task.due_date && task.owner_id && (
               syncingTask === task.task_id ? (
-                <span className="text-[10px] text-ink-400">syncing...</span>
+                <span className="text-[10px] text-ink-400 flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin"></span>
+                  syncing...
+                </span>
               ) : task.sync_status === "synced" ? (
                 <button
                   onClick={(e) => { e.stopPropagation(); handleCalendarUnsync(task); }}

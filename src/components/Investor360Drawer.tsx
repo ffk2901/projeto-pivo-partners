@@ -45,6 +45,9 @@ export default function Investor360Drawer({
     last_interaction_type: "", notes: "",
     origin: "" as Investor["origin"],
     wave: "" as ProjectInvestor["wave"],
+    investor_type: "" as Investor["investor_type"],
+    company_affiliation: "",
+    description: "",
   });
 
   // Note form
@@ -62,6 +65,8 @@ export default function Investor360Drawer({
   const [taskOwner, setTaskOwner] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskPriority, setTaskPriority] = useState("medium");
+  const [taskSyncToCal, setTaskSyncToCal] = useState(false);
+  const [taskSyncStatus, setTaskSyncStatus] = useState<string | null>(null);
 
   // Meeting form
   const [showMeetingForm, setShowMeetingForm] = useState(false);
@@ -116,9 +121,12 @@ export default function Investor360Drawer({
         notes: link.notes || "",
         origin: investor.origin || "",
         wave: link.wave || "",
+        investor_type: investor.investor_type || "fund",
+        company_affiliation: investor.company_affiliation || "",
+        description: investor.description || "",
       });
     }
-  }, [link, investor.origin]);
+  }, [link, investor.origin, investor.investor_type, investor.company_affiliation, investor.description]);
 
   useEffect(() => {
     if (!open) return;
@@ -138,16 +146,16 @@ export default function Investor360Drawer({
   const handleSaveOverview = async () => {
     setSaving(true);
     try {
-      const { origin, wave, ...piFields } = editFields;
+      const { origin, wave, investor_type, company_affiliation, description, ...piFields } = editFields;
       await api(apiPrefix).updateProjectInvestor({
         link_id: link.link_id,
         ...piFields,
         wave,
         next_action: piFields.next_step,
       });
-      // Save origin on the investor entity
-      if (origin !== investor.origin) {
-        await api(apiPrefix).updateInvestor({ investor_id: investor.investor_id, origin });
+      // Save investor-level fields
+      if (origin !== investor.origin || investor_type !== investor.investor_type || company_affiliation !== investor.company_affiliation || description !== investor.description) {
+        await api(apiPrefix).updateInvestor({ investor_id: investor.investor_id, origin, investor_type, company_affiliation, description });
       }
       setEditMode(false);
       onRefresh();
@@ -212,8 +220,9 @@ export default function Investor360Drawer({
   const handleAddTask = async () => {
     if (!taskTitle.trim()) return;
     setSaving(true);
+    setTaskSyncStatus(null);
     try {
-      await api(apiPrefix).createTask({
+      const newTask = await api(apiPrefix).createTask({
         project_id: projectId,
         investor_id: link.investor_id,
         startup_id: "",
@@ -222,8 +231,17 @@ export default function Investor360Drawer({
         due_date: taskDueDate,
         priority: taskPriority as Task["priority"],
       });
+      // Optionally sync to calendar
+      if (taskSyncToCal && taskDueDate && taskOwner && newTask?.task_id) {
+        try {
+          await api(apiPrefix).syncTaskToCalendar(newTask.task_id);
+          setTaskSyncStatus("Synced to Google Calendar");
+        } catch (err) {
+          setTaskSyncStatus(`Calendar sync failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+        }
+      }
       setShowTaskForm(false);
-      setTaskTitle(""); setTaskDueDate("");
+      setTaskTitle(""); setTaskDueDate(""); setTaskSyncToCal(false);
       loadInvestorData();
       onRefresh();
     } catch (err) {
@@ -310,6 +328,11 @@ export default function Investor360Drawer({
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-bold text-ink-800 truncate">{investor.investor_name}</h2>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {investor.investor_type === "individual" ? (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-md font-medium">Individual</span>
+                ) : (
+                  <span className="text-[10px] px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded-md font-medium">Fund</span>
+                )}
                 {investor.tags && investor.tags.split(";").filter(Boolean).slice(0, 2).map((tag) => (
                   <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded-md font-medium">
                     {tag.trim()}
@@ -496,6 +519,29 @@ export default function Investor360Drawer({
                         </div>
                       </div>
                       <div>
+                        <label className={labelClass}>Investor Type</label>
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditFields({ ...editFields, investor_type: "fund" })}
+                            className={`flex-1 px-2 py-1.5 text-xs rounded-lg border font-medium transition-colors ${editFields.investor_type === "fund" || !editFields.investor_type ? "bg-brand-500 text-white border-brand-500" : "bg-surface-0 text-ink-600 border-brand-200"}`}>
+                            Fund
+                          </button>
+                          <button onClick={() => setEditFields({ ...editFields, investor_type: "individual" })}
+                            className={`flex-1 px-2 py-1.5 text-xs rounded-lg border font-medium transition-colors ${editFields.investor_type === "individual" ? "bg-purple-500 text-white border-purple-500" : "bg-surface-0 text-ink-600 border-brand-200"}`}>
+                            Individual
+                          </button>
+                        </div>
+                      </div>
+                      {editFields.investor_type === "individual" && (
+                        <div>
+                          <label className={labelClass}>Company Affiliation</label>
+                          <input type="text" value={editFields.company_affiliation} onChange={(e) => setEditFields({ ...editFields, company_affiliation: e.target.value })} className={inputClass} placeholder="e.g. Empresa X" />
+                        </div>
+                      )}
+                      <div>
+                        <label className={labelClass}>Description</label>
+                        <input type="text" value={editFields.description} onChange={(e) => setEditFields({ ...editFields, description: e.target.value })} className={inputClass} placeholder="Brief description" />
+                      </div>
+                      <div>
                         <label className={labelClass}>Notes</label>
                         <textarea value={editFields.notes} onChange={(e) => setEditFields({ ...editFields, notes: e.target.value })} rows={3} className={inputClass} />
                       </div>
@@ -508,6 +554,9 @@ export default function Investor360Drawer({
                     </div>
                   ) : (
                     <div className="space-y-3">
+                      <OverviewField label="Type" value={investor.investor_type === "individual" ? "Individual Person" : "Fund"} badge badgeClass={investor.investor_type === "individual" ? "bg-purple-100 text-purple-700" : "bg-brand-100 text-brand-600"} />
+                      {investor.company_affiliation && <OverviewField label="Company Affiliation" value={investor.company_affiliation} />}
+                      {investor.description && <OverviewField label="Description" value={investor.description} />}
                       <OverviewField label="Stage" value={link.stage} />
                       <OverviewField label="Owner" value={ownerName} />
                       <OverviewField label="Priority" value={link.priority || "Not set"} />
@@ -624,8 +673,17 @@ export default function Investor360Drawer({
                         <option value="medium">Medium</option>
                         <option value="high">High</option>
                       </select>
+                      {taskDueDate && taskOwner && (
+                        <label className="flex items-center gap-2 text-xs text-ink-600 cursor-pointer">
+                          <input type="checkbox" checked={taskSyncToCal} onChange={(e) => setTaskSyncToCal(e.target.checked)} className="w-3.5 h-3.5 rounded border-brand-300 text-brand-500 focus:ring-brand-500/40" />
+                          Sync to Google Calendar
+                        </label>
+                      )}
+                      {taskSyncStatus && (
+                        <p className={`text-xs ${taskSyncStatus.includes("failed") ? "text-red-600" : "text-emerald-600"}`}>{taskSyncStatus}</p>
+                      )}
                       <div className="flex gap-2">
-                        <button onClick={() => setShowTaskForm(false)} className="px-3 py-1.5 text-xs text-ink-500">Cancel</button>
+                        <button onClick={() => { setShowTaskForm(false); setTaskSyncStatus(null); }} className="px-3 py-1.5 text-xs text-ink-500">Cancel</button>
                         <button onClick={handleAddTask} disabled={saving} className="px-3 py-1.5 text-xs bg-brand-500 text-white rounded-lg hover:bg-brand-600 font-medium disabled:opacity-50">
                           {saving ? "Saving..." : "Create"}
                         </button>

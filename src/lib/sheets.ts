@@ -14,6 +14,10 @@ import type {
   NoteType,
   Meeting,
   ActivityLogEntry,
+  MeetingNote,
+  MeetingType,
+  Sentiment,
+  AuthToken,
 } from "@/types";
 import { FUNNEL_STAGES } from "@/types";
 
@@ -117,6 +121,15 @@ const TAB_HEADERS: Record<string, string[]> = {
     "activity_id", "project_id", "investor_id", "activity_type",
     "description", "metadata", "created_at", "created_by",
   ],
+  MEETING_NOTES: [
+    "note_id", "investor_id", "project_id", "startup_id", "meeting_date",
+    "meeting_type", "subject", "attendees", "summary", "action_items",
+    "sentiment", "calendar_event_id", "transcription_url", "source",
+    "created_by", "created_at",
+  ],
+  AUTH_TOKENS: [
+    "team_id", "access_token", "refresh_token", "expires_at", "google_email",
+  ],
 };
 
 async function readRange(range: string): Promise<string[][]> {
@@ -157,6 +170,8 @@ const TAB = {
   PROJECT_NOTES: "PROJECT_NOTES",
   MEETINGS: "MEETINGS",
   ACTIVITY_LOG: "ACTIVITY_LOG",
+  MEETING_NOTES: "MEETING_NOTES",
+  AUTH_TOKENS: "AUTH_TOKENS",
 } as const;
 
 // ============================================
@@ -235,8 +250,11 @@ function toProjectNoteLegacy(row: string[]): ProjectNote {
 function toInvestor(row: string[]): Investor {
   return {
     investor_id: row[0] || "", investor_name: row[1] || "",
+    investor_type: (row[6] as Investor["investor_type"]) || "fund",
     tags: row[2] || "", email: row[3] || "", notes: row[4] || "",
     origin: (row[5] as Investor["origin"]) || "",
+    company_affiliation: row[7] || "",
+    description: row[8] || "",
   };
 }
 
@@ -652,6 +670,110 @@ export async function createActivityLog(entry: ActivityLogEntry): Promise<void> 
     entry.created_at, entry.created_by || "",
   ]]);
   invalidateCache("activity_log");
+}
+
+// ============================================
+// Meeting Notes (16 columns: A-P)
+// ============================================
+
+function toMeetingNote(row: string[]): MeetingNote {
+  return {
+    note_id: row[0] || "", investor_id: row[1] || "", project_id: row[2] || "",
+    startup_id: row[3] || "", meeting_date: row[4] || "",
+    meeting_type: (row[5] as MeetingType) || "other",
+    subject: row[6] || "", attendees: row[7] || "", summary: row[8] || "",
+    action_items: row[9] || "", sentiment: (row[10] as Sentiment) || "neutral",
+    calendar_event_id: row[11] || "", transcription_url: row[12] || "",
+    source: row[13] || "manual", created_by: row[14] || "",
+    created_at: row[15] || "",
+  };
+}
+
+export async function getMeetingNotes(): Promise<MeetingNote[]> {
+  const k = "meeting_notes"; const c = getCached<MeetingNote[]>(k); if (c) return c;
+  try {
+    await ensureTabExists(TAB.MEETING_NOTES, TAB_HEADERS.MEETING_NOTES);
+    const rows = await readRange(`${TAB.MEETING_NOTES}!A2:P`);
+    const data = rows.map(toMeetingNote).filter((n) => n.note_id);
+    setCache(k, data); return data;
+  } catch { return []; }
+}
+
+export async function getMeetingNotesByInvestor(investorId: string): Promise<MeetingNote[]> {
+  const all = await getMeetingNotes();
+  return all.filter((n) => n.investor_id === investorId);
+}
+
+export async function getMeetingNotesByProject(projectId: string): Promise<MeetingNote[]> {
+  const all = await getMeetingNotes();
+  return all.filter((n) => n.project_id === projectId);
+}
+
+export async function createMeetingNote(note: MeetingNote): Promise<void> {
+  await ensureTabExists(TAB.MEETING_NOTES, TAB_HEADERS.MEETING_NOTES);
+  await appendRows(`${TAB.MEETING_NOTES}!A:P`, [[
+    note.note_id, note.investor_id, note.project_id, note.startup_id,
+    note.meeting_date, note.meeting_type, note.subject, note.attendees,
+    note.summary, note.action_items, note.sentiment, note.calendar_event_id,
+    note.transcription_url, note.source, note.created_by, note.created_at,
+  ]]);
+  invalidateCache("meeting_notes");
+}
+
+export async function updateMeetingNote(note: MeetingNote): Promise<void> {
+  const rowNum = await findRowById(TAB.MEETING_NOTES, note.note_id);
+  await updateRange(`${TAB.MEETING_NOTES}!A${rowNum}:P${rowNum}`, [[
+    note.note_id, note.investor_id, note.project_id, note.startup_id,
+    note.meeting_date, note.meeting_type, note.subject, note.attendees,
+    note.summary, note.action_items, note.sentiment, note.calendar_event_id,
+    note.transcription_url, note.source, note.created_by, note.created_at,
+  ]]);
+  invalidateCache("meeting_notes");
+}
+
+// ============================================
+// Auth Tokens (5 columns: A-E)
+// ============================================
+
+function toAuthToken(row: string[]): AuthToken {
+  return {
+    team_id: row[0] || "", access_token: row[1] || "",
+    refresh_token: row[2] || "", expires_at: row[3] || "",
+    google_email: row[4] || "",
+  };
+}
+
+export async function getAuthTokens(): Promise<AuthToken[]> {
+  const k = "auth_tokens"; const c = getCached<AuthToken[]>(k); if (c) return c;
+  try {
+    await ensureTabExists(TAB.AUTH_TOKENS, TAB_HEADERS.AUTH_TOKENS);
+    const rows = await readRange(`${TAB.AUTH_TOKENS}!A2:E`);
+    const data = rows.map(toAuthToken).filter((t) => t.team_id);
+    setCache(k, data); return data;
+  } catch { return []; }
+}
+
+export async function getAuthTokenByTeamId(teamId: string): Promise<AuthToken | null> {
+  const all = await getAuthTokens();
+  return all.find((t) => t.team_id === teamId) || null;
+}
+
+export async function upsertAuthToken(token: AuthToken): Promise<void> {
+  await ensureTabExists(TAB.AUTH_TOKENS, TAB_HEADERS.AUTH_TOKENS);
+  try {
+    const rowNum = await findRowById(TAB.AUTH_TOKENS, token.team_id);
+    await updateRange(`${TAB.AUTH_TOKENS}!A${rowNum}:E${rowNum}`, [[
+      token.team_id, token.access_token, token.refresh_token,
+      token.expires_at, token.google_email,
+    ]]);
+  } catch {
+    // Row doesn't exist, create new
+    await appendRows(`${TAB.AUTH_TOKENS}!A:E`, [[
+      token.team_id, token.access_token, token.refresh_token,
+      token.expires_at, token.google_email,
+    ]]);
+  }
+  invalidateCache("auth_tokens");
 }
 
 // ============================================

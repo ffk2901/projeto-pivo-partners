@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
-import type { ProjectInvestor, Investor } from "@/types";
+import type { ProjectInvestor, Investor, MeetingNote } from "@/types";
+import { SENTIMENT_CONFIG } from "@/types";
 import Modal from "./Modal";
 
 interface Props {
@@ -10,10 +11,11 @@ interface Props {
   links: ProjectInvestor[];
   investors: Investor[];
   stages: string[];
+  meetingNotes?: MeetingNote[];
   onRefresh: () => void;
 }
 
-export default function PipelineTab({ projectId, links, investors, stages, onRefresh }: Props) {
+export default function PipelineTab({ projectId, links, investors, stages, meetingNotes = [], onRefresh }: Props) {
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showDetail, setShowDetail] = useState<string | null>(null);
@@ -142,6 +144,9 @@ export default function PipelineTab({ projectId, links, investors, stages, onRef
             <div className="p-2 space-y-2 min-h-[100px]">
               {cards.map((link) => {
                 const inv = getInvestor(link.investor_id);
+                const investorNotes = meetingNotes.filter((n) => n.investor_id === link.investor_id);
+                const latestNote = investorNotes.sort((a, b) => (b.meeting_date || b.created_at).localeCompare(a.meeting_date || a.created_at))[0];
+                const noteCount = investorNotes.length;
                 return (
                   <div key={link.link_id} draggable
                     onDragStart={() => handleDragStart(link.link_id)}
@@ -150,10 +155,20 @@ export default function PipelineTab({ projectId, links, investors, stages, onRef
                       draggingId === link.link_id ? "opacity-50" : ""
                     }`}>
                     <div className="flex items-start justify-between">
-                      <p className="text-sm font-medium text-gray-800 cursor-pointer hover:text-blue-600"
-                        onClick={() => openDetail(link)}>
-                        {inv?.investor_name || link.investor_id}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        {latestNote && (
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${SENTIMENT_CONFIG[latestNote.sentiment]?.dot || "bg-amber-400"}`} title={`Sentiment: ${latestNote.sentiment}`}></div>
+                        )}
+                        <p className="text-sm font-medium text-gray-800 cursor-pointer hover:text-blue-600"
+                          onClick={() => openDetail(link)}>
+                          {inv?.investor_name || link.investor_id}
+                        </p>
+                      </div>
+                      {noteCount > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-brand-100 text-brand-700 rounded font-medium flex-shrink-0">
+                          {noteCount} note{noteCount !== 1 ? "s" : ""}
+                        </span>
+                      )}
                     </div>
                     {inv?.tags && (
                       <div className="flex flex-wrap gap-1 mt-1">
@@ -168,7 +183,7 @@ export default function PipelineTab({ projectId, links, investors, stages, onRef
                       <p className="text-xs text-blue-500 mt-1.5 truncate">Next: {link.next_action}</p>
                     )}
                     {link.last_update && (
-                      <p className="text-[10px] text-gray-300 mt-1">Updated: {link.last_update}</p>
+                      <p className="text-[10px] text-gray-300 mt-1">Last: {link.last_interaction_date || link.last_update}</p>
                     )}
                     {/* Stage dropdown for quick change */}
                     <select value={link.stage}

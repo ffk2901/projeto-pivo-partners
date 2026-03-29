@@ -85,7 +85,7 @@ function InvestorCard({
       style={style}
       {...attributes}
       {...listeners}
-      className="bg-surface-0 border border-brand-200/60 rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-brand-400 hover:shadow-sm transition-colors group"
+      className={`bg-surface-0 border border-brand-200/60 rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-brand-400 hover:shadow-sm transition-colors group ${investor?.investor_type === "individual" ? "border-l-[3px] border-l-purple-400" : ""}`}
     >
       {/* Click target for opening drawer */}
       <div
@@ -93,13 +93,23 @@ function InvestorCard({
         onClick={(e) => { e.stopPropagation(); onOpenDrawer(link); }}
       >
         <div className="flex items-start justify-between">
-          <p className="text-sm font-medium text-ink-800 hover:text-brand-600 transition-colors">
-            {investor?.investor_name || link.investor_id}
-          </p>
+          <div className="flex items-center gap-1 min-w-0">
+            <p className="text-sm font-medium text-ink-800 hover:text-brand-600 transition-colors truncate">
+              {investor?.investor_name || link.investor_id}
+            </p>
+            {investor?.investor_type === "individual" && (
+              <span className="text-[8px] px-1 py-0.5 bg-purple-100 text-purple-600 rounded font-bold flex-shrink-0">PF</span>
+            )}
+          </div>
           {link.priority === "high" && (
             <span className="text-[8px] px-1 py-0.5 bg-red-100 text-red-600 rounded font-bold flex-shrink-0 ml-1">HIGH</span>
           )}
         </div>
+
+        {/* Company affiliation for individuals */}
+        {investor?.investor_type === "individual" && investor?.company_affiliation && (
+          <p className="text-[10px] text-ink-400 mt-0.5">via {investor.company_affiliation}</p>
+        )}
 
         {/* Tag label */}
         {investor?.tags && (
@@ -200,6 +210,7 @@ function StageColumn({
   meetings,
   isOver,
   onOpenDrawer,
+  expanded,
 }: {
   stage: string;
   cards: ProjectInvestor[];
@@ -210,6 +221,7 @@ function StageColumn({
   meetings: Meeting[];
   isOver: boolean;
   onOpenDrawer: (link: ProjectInvestor) => void;
+  expanded?: boolean;
 }) {
   const { setNodeRef } = useDroppable({ id: `stage:${stage}` });
   const getInvestor = (id: string) => investors.find((i) => i.investor_id === id);
@@ -225,7 +237,9 @@ function StageColumn({
 
   return (
     <div
-      className={`flex-shrink-0 w-64 rounded-2xl border transition-colors duration-200 ${
+      className={`rounded-2xl border transition-colors duration-200 ${
+        expanded ? "flex-1 min-w-[180px]" : "flex-shrink-0 w-64"
+      } ${
         isOver ? "border-brand-500 bg-brand-100/40" : "border-brand-200/60 bg-surface-50"
       }`}
     >
@@ -301,6 +315,17 @@ function applyStageMove(links: ProjectInvestor[], linkId: string, newStage: stri
 export default function FunnelBoard({ projectId, links, investors, stages, team, notes, tasks, meetings, onRefresh, onOpenDrawer, readOnly, apiPrefix }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // ESC key closes fullscreen
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsFullscreen(false);
+    };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [isFullscreen]);
 
   const [optimisticLinks, setOptimisticLinks] = useState<ProjectInvestor[] | null>(null);
   const displayLinks = optimisticLinks || links;
@@ -571,8 +596,8 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
     return { total, active, advanced, overdue };
   }, [filteredLinks]);
 
-  return (
-    <div>
+  const content = (
+    <>
       {/* Summary bar */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
@@ -595,14 +620,31 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
             </span>
           )}
         </div>
-        {!readOnly && (
+        <div className="flex items-center gap-2">
+          {!readOnly && (
+            <button
+              onClick={() => setShowPicker(true)}
+              className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm"
+            >
+              + Add Investor
+            </button>
+          )}
           <button
-            onClick={() => setShowPicker(true)}
-            className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm"
+            onClick={() => setIsFullscreen((v) => !v)}
+            title={isFullscreen ? "Exit fullscreen" : "Expand fullscreen"}
+            className="p-2 text-ink-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
           >
-            + Add Investor
+            {isFullscreen ? (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+              </svg>
+            ) : (
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+              </svg>
+            )}
           </button>
-        )}
+        </div>
       </div>
 
       {/* Filter bar */}
@@ -726,7 +768,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="flex gap-3 overflow-x-auto pb-4 funnel-scroll">
+        <div className={`flex gap-3 pb-4 funnel-scroll ${isFullscreen ? "overflow-y-auto" : "overflow-x-auto"}`}>
           {cardsByStage.map(({ stage, cards }) => (
             <StageColumn
               key={stage}
@@ -739,6 +781,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
               meetings={meetings}
               isOver={overStage === stage}
               onOpenDrawer={onOpenDrawer}
+              expanded={isFullscreen}
             />
           ))}
         </div>
@@ -773,6 +816,32 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
         excludeIds={existingInvestorIds}
         onSelect={handleAddInvestor}
       />
-    </div>
+    </>
   );
+
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-50 bg-surface-100 flex flex-col overflow-hidden">
+        {/* Fullscreen header */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-brand-200/60 bg-surface-50 flex-shrink-0">
+          <h2 className="text-sm font-semibold text-ink-700">Pipeline — Fullscreen</h2>
+          <button
+            onClick={() => setIsFullscreen(false)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-ink-500 hover:text-ink-700 hover:bg-brand-100 rounded-lg transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+            </svg>
+            Exit Fullscreen
+          </button>
+        </div>
+        {/* Fullscreen content */}
+        <div className="flex-1 overflow-auto p-6">
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  return <div>{content}</div>;
 }
