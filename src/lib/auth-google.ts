@@ -19,7 +19,11 @@ export function generateAuthUrl(userId: string): string {
   return oauth2Client.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: ["https://www.googleapis.com/auth/calendar.readonly"],
+    scope: [
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "openid",
+      "email",
+    ],
     state: userId,
   });
 }
