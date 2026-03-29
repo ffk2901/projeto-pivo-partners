@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import type { Task, TeamMember, Startup, MeetingNote, ProjectInvestor, Investor, Project } from "@/types";
 import { SENTIMENT_CONFIG } from "@/types";
@@ -308,29 +309,14 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Calendar Widget */}
-      {currentUserId && (
-        <div className="mb-6">
-          <CalendarWidget userId={currentUserId} />
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex gap-1 mb-6">
-        {(["today", "week", "overdue"] as Filter[]).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3.5 py-1.5 text-sm rounded-xl capitalize font-medium transition-colors ${
-              filter === f
-                ? "bg-brand-500 text-white shadow-sm"
-                : "text-ink-500 bg-surface-0 border border-brand-200/60 hover:bg-brand-50"
-            }`}
-          >
-            {f === "week" ? "This Week" : f}
-          </button>
-        ))}
-      </div>
+      {/* 3-column layout */}
+      <div className="grid grid-cols-3 gap-6">
+        {/* LEFT COLUMN — 2/3 width */}
+        <div className="col-span-2 space-y-6">
+          {/* Calendar Widget */}
+          {currentUserId && (
+            <CalendarWidget userId={currentUserId} />
+          )}
 
           {/* Recent Meeting Notes */}
           <div className="bg-surface-0 border border-brand-200/60 rounded-2xl">

@@ -122,6 +122,19 @@ export function api(prefix = "/api") {
       return fetchJson<import("@/types").ActivityLogEntry[]>(url);
     },
 
+    // Meeting Notes
+    getMeetingNotes: (params?: { investor_id?: string; project_id?: string; startup_id?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.investor_id) sp.set("investor_id", params.investor_id);
+      if (params?.project_id) sp.set("project_id", params.project_id);
+      if (params?.startup_id) sp.set("startup_id", params.startup_id);
+      const qs = sp.toString();
+      const url = qs ? `${prefix}/meeting-notes?${qs}` : `${prefix}/meeting-notes`;
+      return fetchJson<import("@/types").MeetingNote[]>(url);
+    },
+    createMeetingNote: (d: Partial<import("@/types").MeetingNote>) =>
+      post<import("@/types").MeetingNote>(`${prefix}/meeting-notes`, d),
+
     // Meeting Report
     getMeetingReport: (projectId: string) =>
       fetchJson<Record<string, unknown>>(`${prefix}/meeting-report?project_id=${projectId}`),
