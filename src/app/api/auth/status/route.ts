@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/access";
 import { getCalendarConnectionStatus } from "@/lib/auth-google";
 
-export async function GET(req: NextRequest) {
-  const teamId = req.nextUrl.searchParams.get("team_id");
-  if (!teamId) {
-    return NextResponse.json({ error: "team_id is required" }, { status: 400 });
-  }
+export const dynamic = "force-dynamic";
 
+export async function GET(req: NextRequest) {
   try {
-    const status = await getCalendarConnectionStatus(teamId);
+    const payload = await requireAuth(req);
+    if (!payload) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const status = await getCalendarConnectionStatus(payload.user_id);
     return NextResponse.json(status);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to check status";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 }
+    );
   }
 }

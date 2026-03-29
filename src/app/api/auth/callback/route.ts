@@ -1,19 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { exchangeCodeForTokens } from "@/lib/auth-google";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
-  const code = req.nextUrl.searchParams.get("code");
-  const state = req.nextUrl.searchParams.get("state"); // team_id
-
-  if (!code || !state) {
-    return NextResponse.redirect(new URL("/?calendar_error=missing_params", req.url));
-  }
-
   try {
+    const { searchParams } = new URL(req.url);
+    const code = searchParams.get("code");
+    const state = searchParams.get("state"); // user_id
+
+    if (!code || !state) {
+      const errorUrl = new URL("/", req.url);
+      errorUrl.searchParams.set("calendar_error", "missing_params");
+      return NextResponse.redirect(errorUrl);
+    }
+
     await exchangeCodeForTokens(code, state);
-    return NextResponse.redirect(new URL("/?calendar_connected=true", req.url));
+
+    const successUrl = new URL("/", req.url);
+    successUrl.searchParams.set("calendar_connected", "true");
+    return NextResponse.redirect(successUrl);
   } catch (err) {
-    console.error("OAuth callback error:", err);
-    return NextResponse.redirect(new URL("/?calendar_error=auth_failed", req.url));
+    console.error("Google OAuth callback error:", err);
+    const errorUrl = new URL("/", req.url);
+    errorUrl.searchParams.set("calendar_error", "auth_failed");
+    return NextResponse.redirect(errorUrl);
   }
 }

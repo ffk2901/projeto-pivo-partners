@@ -1,20 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserCalendarEvents } from "@/lib/calendar";
+import { requireAuth } from "@/lib/access";
+import { getUserCalendarEvents } from "@/lib/calendar-user";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const teamId = req.nextUrl.searchParams.get("team_id");
-  const date = req.nextUrl.searchParams.get("date") || undefined;
-  const range = req.nextUrl.searchParams.get("range") as "week" | undefined;
-
-  if (!teamId) {
-    return NextResponse.json({ error: "team_id is required" }, { status: 400 });
-  }
-
   try {
-    const events = await getUserCalendarEvents(teamId, date, range);
+    const payload = await requireAuth(req);
+    if (!payload) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const date = searchParams.get("date") || undefined;
+    const range = searchParams.get("range") === "week" ? "week" : undefined;
+
+    const events = await getUserCalendarEvents(payload.user_id, date, range);
     return NextResponse.json(events);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to fetch calendar events";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 }
+    );
   }
 }

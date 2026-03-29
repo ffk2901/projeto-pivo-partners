@@ -391,6 +391,48 @@ export async function deleteUserProjectAccess(accessId: string): Promise<void> {
 }
 
 // ============================================
+// Calendar Tokens
+// ============================================
+
+export interface CalendarToken {
+  user_id: string;
+  access_token: string;
+  refresh_token: string;
+  expires_at: string;
+  google_email: string;
+}
+
+export async function getCalendarToken(userId: string): Promise<CalendarToken | null> {
+  const { data, error } = await getSupabase()
+    .from("calendar_tokens")
+    .select("*")
+    .eq("user_id", userId)
+    .single();
+  if (error || !data) return null;
+  return data as CalendarToken;
+}
+
+export async function upsertCalendarToken(token: CalendarToken): Promise<void> {
+  const { error } = await getSupabase()
+    .from("calendar_tokens")
+    .upsert(
+      { ...token, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
+  if (error) throw new Error(error.message);
+  invalidateCache("calendar_tokens");
+}
+
+export async function deleteCalendarToken(userId: string): Promise<void> {
+  const { error } = await getSupabase()
+    .from("calendar_tokens")
+    .delete()
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  invalidateCache("calendar_tokens");
+}
+
+// ============================================
 // Health check
 // ============================================
 

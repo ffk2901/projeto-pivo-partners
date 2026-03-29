@@ -1,56 +1,62 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserCalendarEvent } from "@/lib/calendar";
-import { generateId } from "@/lib/sheets";
-import type { MeetingNote } from "@/types";
+import { requireAuth } from "@/lib/access";
+import { getUserCalendarEvent } from "@/lib/calendar-user";
+import { createMeeting, generateId } from "@/lib/db";
+import type { Meeting } from "@/types";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { calendar_event_id, team_id } = await req.json();
-
-    if (!calendar_event_id || !team_id) {
-      return NextResponse.json(
-        { error: "calendar_event_id and team_id are required" },
-        { status: 400 }
-      );
+    const payload = await requireAuth(req);
+    if (!payload) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    const event = await getUserCalendarEvent(team_id, calendar_event_id);
+    const body = await req.json();
+    const { calendar_event_id, project_id, investor_id } = body;
+
+    if (!calendar_event_id) {
+      return NextResponse.json({ error: "calendar_event_id is required" }, { status: 400 });
+    }
+    if (!project_id) {
+      return NextResponse.json({ error: "project_id is required" }, { status: 400 });
+    }
+
+    const event = await getUserCalendarEvent(payload.user_id, calendar_event_id);
     if (!event) {
       return NextResponse.json({ error: "Calendar event not found" }, { status: 404 });
     }
 
-    // Extract date from event start
-    const meetingDate = event.start
-      ? event.start.includes("T")
-        ? event.start.split("T")[0]
-        : event.start
-      : new Date().toISOString().split("T")[0];
+    const now = new Date().toISOString();
+    const eventDate = event.start ? event.start.split("T")[0] : "";
+    const eventTime = event.start && event.start.includes("T")
+      ? event.start.split("T")[1]?.substring(0, 5) || ""
+      : "";
 
-    // Determine meeting type from event
-    const meetingType = event.meet_link ? "video" : "other";
-
-    const note: MeetingNote = {
-      note_id: generateId("mn"),
-      investor_id: event.matched_investor?.investor_id || "",
-      project_id: event.matched_project?.project_id || "",
-      startup_id: "",
-      meeting_date: meetingDate,
-      meeting_type: meetingType,
-      subject: event.title,
-      attendees: event.attendees.join("; "),
-      summary: "",
-      action_items: "",
-      sentiment: "neutral",
-      calendar_event_id: event.event_id,
-      transcription_url: "",
+    const meeting: Meeting = {
+      meeting_id: generateId("mtg"),
+      project_id,
+      investor_id: investor_id || "",
+      title: event.summary,
+      date: eventDate,
+      time: eventTime,
+      participants: event.attendees.join("; "),
+      status: "scheduled",
       source: "calendar",
-      created_by: team_id,
-      created_at: new Date().toISOString(),
+      summary: "",
+      next_steps: "",
+      calendar_event_id,
+      created_at: now,
+      updated_at: now,
     };
 
-    return NextResponse.json(note);
+    await createMeeting(meeting);
+    return NextResponse.json(meeting, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to create note from calendar";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 }
+    );
   }
 }

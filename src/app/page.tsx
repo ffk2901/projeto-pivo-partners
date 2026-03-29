@@ -7,7 +7,6 @@ import { SENTIMENT_CONFIG } from "@/types";
 import Modal from "@/components/Modal";
 import TaskForm from "@/components/TaskForm";
 import CalendarWidget from "@/components/CalendarWidget";
-import Link from "next/link";
 
 type Filter = "today" | "week" | "overdue";
 
@@ -72,6 +71,7 @@ export default function HomePage() {
   const [newStartupName, setNewStartupName] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState("");
 
   // For calendar widget — use first team member as default team_id
   // In a real app this would come from the auth session
@@ -107,6 +107,13 @@ export default function HomePage() {
       setLoading(false);
     }
   }, [currentTeamId]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => { if (d.user_id) setCurrentUserId(d.user_id); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -301,14 +308,29 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* LEFT COLUMN — 2/3 width */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Calendar Widget */}
-          {currentTeamId && (
-            <CalendarWidget teamId={currentTeamId} onNoteCreated={loadData} />
-          )}
+      {/* Calendar Widget */}
+      {currentUserId && (
+        <div className="mb-6">
+          <CalendarWidget userId={currentUserId} />
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="flex gap-1 mb-6">
+        {(["today", "week", "overdue"] as Filter[]).map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-3.5 py-1.5 text-sm rounded-xl capitalize font-medium transition-colors ${
+              filter === f
+                ? "bg-brand-500 text-white shadow-sm"
+                : "text-ink-500 bg-surface-0 border border-brand-200/60 hover:bg-brand-50"
+            }`}
+          >
+            {f === "week" ? "This Week" : f}
+          </button>
+        ))}
+      </div>
 
           {/* Recent Meeting Notes */}
           <div className="bg-surface-0 border border-brand-200/60 rounded-2xl">

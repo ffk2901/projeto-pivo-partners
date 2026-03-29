@@ -132,32 +132,22 @@ export function api(prefix = "/api") {
     unsyncTaskFromCalendar: (taskId: string) =>
       post<{ success: boolean; task: import("@/types").Task }>(`${prefix}/calendar-sync`, { task_id: taskId, action: "unsync" }),
 
-    // Google Calendar (OAuth2 user calendar)
-    getCalendarEvents: (teamId: string, date?: string, range?: "week") => {
-      const params = new URLSearchParams({ team_id: teamId });
+    // Google Calendar (user OAuth)
+    getCalendarConnectionStatus: () =>
+      fetchJson<{ connected: boolean; email?: string; reason?: "not_connected" | "token_revoked" }>(`${prefix}/auth/status`),
+    getCalendarEvents: (date?: string, range?: "week") => {
+      const params = new URLSearchParams();
       if (date) params.set("date", date);
       if (range) params.set("range", range);
-      return fetchJson<import("@/types").CalendarEvent[]>(`/api/calendar/events?${params}`);
-    },
-    getCalendarConnectionStatus: (teamId: string) =>
-      fetchJson<{ connected: boolean; email?: string; expired?: boolean }>(`/api/auth/status?team_id=${teamId}`),
-
-    // Meeting Notes
-    getMeetingNotes: (filters?: { investor_id?: string; project_id?: string; startup_id?: string }) => {
-      const params = new URLSearchParams();
-      if (filters?.investor_id) params.set("investor_id", filters.investor_id);
-      if (filters?.project_id) params.set("project_id", filters.project_id);
-      if (filters?.startup_id) params.set("startup_id", filters.startup_id);
       const qs = params.toString();
-      return fetchJson<import("@/types").MeetingNote[]>(qs ? `${prefix}/meeting-notes?${qs}` : `${prefix}/meeting-notes`);
+      const url = qs ? `${prefix}/calendar/events?${qs}` : `${prefix}/calendar/events`;
+      return fetchJson<Record<string, unknown>[]>(url);
     },
-    createMeetingNote: (d: Partial<import("@/types").MeetingNote>) =>
-      post<import("@/types").MeetingNote>(`${prefix}/meeting-notes`, d),
-    updateMeetingNote: (d: Partial<import("@/types").MeetingNote>) =>
-      put<import("@/types").MeetingNote>(`${prefix}/meeting-notes`, d),
-    createNoteFromCalendar: (calendarEventId: string, teamId: string) =>
-      post<import("@/types").MeetingNote>(`${prefix}/meeting-notes/from-calendar`, { calendar_event_id: calendarEventId, team_id: teamId }),
-    generateTasksFromNote: (noteId: string) =>
-      post<import("@/types").Task[]>(`${prefix}/meeting-notes/generate-tasks`, { note_id: noteId }),
+    createNoteFromCalendar: (calendarEventId: string, projectId: string, investorId?: string) =>
+      post<unknown>(`${prefix}/meeting-notes/from-calendar`, {
+        calendar_event_id: calendarEventId,
+        project_id: projectId,
+        investor_id: investorId || "",
+      }),
   };
 }
