@@ -131,5 +131,23 @@ export function api(prefix = "/api") {
       post<{ success: boolean; task: import("@/types").Task; eventId?: string }>(`${prefix}/calendar-sync`, { task_id: taskId }),
     unsyncTaskFromCalendar: (taskId: string) =>
       post<{ success: boolean; task: import("@/types").Task }>(`${prefix}/calendar-sync`, { task_id: taskId, action: "unsync" }),
+
+    // Google Calendar (user OAuth)
+    getCalendarConnectionStatus: () =>
+      fetchJson<{ connected: boolean; email?: string; reason?: "not_connected" | "token_revoked" }>(`${prefix}/auth/status`),
+    getCalendarEvents: (date?: string, range?: "week") => {
+      const params = new URLSearchParams();
+      if (date) params.set("date", date);
+      if (range) params.set("range", range);
+      const qs = params.toString();
+      const url = qs ? `${prefix}/calendar/events?${qs}` : `${prefix}/calendar/events`;
+      return fetchJson<Record<string, unknown>[]>(url);
+    },
+    createNoteFromCalendar: (calendarEventId: string, projectId: string, investorId?: string) =>
+      post<unknown>(`${prefix}/meeting-notes/from-calendar`, {
+        calendar_event_id: calendarEventId,
+        project_id: projectId,
+        investor_id: investorId || "",
+      }),
   };
 }

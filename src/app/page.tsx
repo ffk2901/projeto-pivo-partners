@@ -5,6 +5,7 @@ import { api } from "@/lib/api";
 import type { Task, TeamMember, Startup } from "@/types";
 import Modal from "@/components/Modal";
 import TaskForm from "@/components/TaskForm";
+import CalendarWidget from "@/components/CalendarWidget";
 
 type Filter = "today" | "week" | "overdue";
 
@@ -54,6 +55,7 @@ export default function HomePage() {
   const [newStartupName, setNewStartupName] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState("");
 
   const loadData = useCallback(async () => {
     try {
@@ -73,6 +75,13 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => { if (d.user_id) setCurrentUserId(d.user_id); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -218,6 +227,13 @@ export default function HomePage() {
           <p className="text-xs text-ink-400 mt-0.5">Overdue Tasks</p>
         </div>
       </div>
+
+      {/* Calendar Widget */}
+      {currentUserId && (
+        <div className="mb-6">
+          <CalendarWidget userId={currentUserId} />
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-1 mb-6">
