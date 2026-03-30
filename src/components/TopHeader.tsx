@@ -1,22 +1,20 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-
-const PAGE_TITLES: Record<string, string> = {
-  "/": "Dashboard",
-  "/startups": "Startups",
-  "/investors": "Investors Directory",
-  "/admin/users": "User Management",
-};
+import { useState } from "react";
 
 export default function TopHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const [headerSearch, setHeaderSearch] = useState("");
 
-  const getTitle = () => {
-    if (pathname.startsWith("/projects/")) return "Investor Funnel";
-    if (pathname.startsWith("/startups/")) return "Startup Details";
-    return PAGE_TITLES[pathname] || "";
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && headerSearch.trim()) {
+      // Navigate to investors page with search pre-filled via URL
+      router.push("/investors?q=" + encodeURIComponent(headerSearch.trim()));
+      setHeaderSearch("");
+    }
   };
 
   return (
@@ -30,6 +28,9 @@ export default function TopHeader() {
           </svg>
           <input
             type="text"
+            value={headerSearch}
+            onChange={(e) => setHeaderSearch(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
             placeholder="Search investors, projects..."
             className="pl-9 pr-4 py-2 w-72 rounded-full bg-md-surface_container_highest text-sm text-md-on_surface placeholder:text-md-on_surface_variant/60 focus:outline-none focus:ring-2 focus:ring-md-primary_container/40"
           />
