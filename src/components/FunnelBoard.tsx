@@ -304,6 +304,7 @@ function StageColumn({
   meetings,
   isOver,
   onOpenDrawer,
+  expanded,
 }: {
   stage: string;
   cards: ProjectInvestor[];
@@ -314,6 +315,7 @@ function StageColumn({
   meetings: Meeting[];
   isOver: boolean;
   onOpenDrawer: (link: ProjectInvestor) => void;
+  expanded?: boolean;
 }) {
   const { setNodeRef } = useDroppable({ id: `stage:${stage}` });
   const getInvestor = (id: string) => investors.find((i) => i.investor_id === id);
@@ -859,7 +861,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
         onDragEnd={handleDragEnd}
         onDragCancel={handleDragCancel}
       >
-        <div className="flex gap-3 overflow-x-auto pb-4 funnel-scroll">
+        <div className={`flex gap-3 pb-4 funnel-scroll ${isFullscreen ? "overflow-y-auto" : "overflow-x-auto"}`}>
           {cardsByStage.map(({ stage, cards }) => (
             <StageColumn
               key={stage}
@@ -872,6 +874,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
               meetings={meetings}
               isOver={overStage === stage}
               onOpenDrawer={onOpenDrawer}
+              expanded={isFullscreen}
             />
           ))}
         </div>
@@ -906,6 +909,32 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
         excludeIds={existingInvestorIds}
         onSelect={handleAddInvestor}
       />
-    </div>
+    </>
   );
+
+  if (isFullscreen) {
+    return (
+      <div className="fixed inset-0 z-50 bg-surface-100 flex flex-col overflow-hidden">
+        {/* Fullscreen header */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-brand-200/60 bg-surface-50 flex-shrink-0">
+          <h2 className="text-sm font-semibold text-ink-700">Pipeline — Fullscreen</h2>
+          <button
+            onClick={() => setIsFullscreen(false)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-ink-500 hover:text-ink-700 hover:bg-brand-100 rounded-lg transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+            </svg>
+            Exit Fullscreen
+          </button>
+        </div>
+        {/* Fullscreen content */}
+        <div className="flex-1 overflow-auto p-6">
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  return <div>{content}</div>;
 }

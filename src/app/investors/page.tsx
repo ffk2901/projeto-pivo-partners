@@ -3,7 +3,8 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import type { Investor, ProjectInvestor, Project, Startup } from "@/types";
+import type { Investor, ProjectInvestor, Project, Startup, MeetingNote } from "@/types";
+import { SENTIMENT_CONFIG, MEETING_TYPE_LABELS } from "@/types";
 import Modal from "@/components/Modal";
 
 const ITEMS_PER_PAGE = 12;
@@ -53,6 +54,7 @@ export default function InvestorsPage() {
   const [piLinks, setPiLinks] = useState<ProjectInvestor[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [startups, setStartups] = useState<Startup[]>([]);
+  const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -73,22 +75,32 @@ export default function InvestorsPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const [editType, setEditType] = useState<Investor["investor_type"]>("fund");
+  const [editCompany, setEditCompany] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+
   const [newName, setNewName] = useState("");
   const [newTags, setNewTags] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [newType, setNewType] = useState<Investor["investor_type"]>("fund");
+  const [newCompany, setNewCompany] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [filterType, setFilterType] = useState<string>("");
 
   const loadData = useCallback(async () => {
     try {
-      const [inv, pi, prj, st] = await Promise.all([
+      const [inv, pi, prj, st, mn] = await Promise.all([
         api().getInvestors(),
         api().getProjectInvestors(),
         api().getProjects(),
         api().getStartups(),
+        api().getMeetingNotes(),
       ]);
       setInvestors(inv);
       setPiLinks(pi);
       setProjects(prj);
       setStartups(st);
+      setMeetingNotes(mn);
     } catch (err) {
       console.error("Failed to load:", err);
     } finally {
@@ -107,6 +119,9 @@ export default function InvestorsPage() {
       setEditEmail(showDetail.email);
       setEditNotes(showDetail.notes);
       setEditOrigin(showDetail.origin || "");
+      setEditType(showDetail.investor_type || "fund");
+      setEditCompany(showDetail.company_affiliation || "");
+      setEditDescription(showDetail.description || "");
       setDetailEditMode(false);
       setShowDeleteConfirm(false);
       setDeleteError(null);
@@ -117,10 +132,13 @@ export default function InvestorsPage() {
     if (!newName.trim()) return;
     await api().createInvestor({
       investor_name: newName.trim(),
+      investor_type: newType || "fund",
       tags: newTags,
       email: newEmail,
+      company_affiliation: newCompany,
+      description: newDescription,
     });
-    setNewName(""); setNewTags(""); setNewEmail("");
+    setNewName(""); setNewTags(""); setNewEmail(""); setNewType("fund"); setNewCompany(""); setNewDescription("");
     setShowAdd(false);
     loadData();
   };
@@ -132,10 +150,13 @@ export default function InvestorsPage() {
       await api().updateInvestor({
         investor_id: showDetail.investor_id,
         investor_name: editName.trim(),
+        investor_type: editType,
         tags: editTags,
         email: editEmail,
         notes: editNotes,
         origin: editOrigin,
+        company_affiliation: editCompany,
+        description: editDescription,
       });
       setDetailEditMode(false);
       setShowDetail(null);
@@ -468,7 +489,21 @@ export default function InvestorsPage() {
             <label className="block label-md text-md-on_surface_variant mb-2">Name *</label>
             <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
               className={inputClass}
-              placeholder="e.g. Sequoia Capital" />
+              placeholder={newType === "individual" ? "e.g. João Silva" : "e.g. Sequoia Capital"} />
+          </div>
+          {newType === "individual" && (
+            <div>
+              <label className="block text-sm font-medium text-ink-700 mb-1">Company Affiliation</label>
+              <input type="text" value={newCompany} onChange={(e) => setNewCompany(e.target.value)}
+                className={inputClass}
+                placeholder="e.g. Empresa X" />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-ink-700 mb-1">Description</label>
+            <input type="text" value={newDescription} onChange={(e) => setNewDescription(e.target.value)}
+              className={inputClass}
+              placeholder="Brief description" />
           </div>
           <div>
             <label className="block label-md text-md-on_surface_variant mb-2">Tags (semicolon-separated)</label>
@@ -498,6 +533,16 @@ export default function InvestorsPage() {
                 <div>
                   <label className="block label-md text-md-on_surface_variant mb-2">Name *</label>
                   <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className={inputClass} />
+                </div>
+                {editType === "individual" && (
+                  <div>
+                    <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Company Affiliation</label>
+                    <input type="text" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} className={inputClass} placeholder="e.g. Empresa X" />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Description</label>
+                  <input type="text" value={editDescription} onChange={(e) => setEditDescription(e.target.value)} className={inputClass} placeholder="Brief description" />
                 </div>
                 <div>
                   <label className="block label-md text-md-on_surface_variant mb-2">Tags (semicolon-separated)</label>
@@ -555,6 +600,11 @@ export default function InvestorsPage() {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  {(showDetail.investor_type === "individual") ? (
+                    <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-lg font-medium">Individual</span>
+                  ) : (
+                    <span className="text-xs px-2 py-0.5 bg-brand-100 text-brand-600 rounded-lg font-medium">Fund</span>
+                  )}
                   {showDetail.tags && showDetail.tags.split(";").filter(Boolean).map((tag) => (
                     <span key={tag} className="text-xs px-2.5 py-1 bg-md-surface_container_high text-md-on_surface_variant rounded-2xl font-medium">{tag.trim()}</span>
                   ))}
@@ -565,6 +615,20 @@ export default function InvestorsPage() {
                     <span className="text-xs px-2.5 py-1 bg-blue-50 text-blue-700 rounded-2xl font-medium">INTL</span>
                   )}
                 </div>
+
+                {showDetail.company_affiliation && (
+                  <div>
+                    <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Company Affiliation</p>
+                    <p className="text-sm text-ink-700">{showDetail.company_affiliation}</p>
+                  </div>
+                )}
+
+                {showDetail.description && (
+                  <div>
+                    <p className="text-xs text-ink-400 uppercase tracking-wide mb-1">Description</p>
+                    <p className="text-sm text-ink-700">{showDetail.description}</p>
+                  </div>
+                )}
 
                 {showDetail.notes && (
                   <div>
@@ -601,6 +665,42 @@ export default function InvestorsPage() {
                       ))}
                     </div>
                   )}
+                </div>
+
+                {/* Interaction History */}
+                <div>
+                  <p className="text-xs text-ink-400 uppercase tracking-wide mb-2">Interaction History</p>
+                  {(() => {
+                    const investorNotes = meetingNotes
+                      .filter((n) => n.investor_id === showDetail.investor_id)
+                      .sort((a, b) => (b.meeting_date || b.created_at).localeCompare(a.meeting_date || a.created_at));
+                    if (investorNotes.length === 0) {
+                      return <p className="text-sm text-ink-300 italic">No meeting notes for this investor.</p>;
+                    }
+                    return (
+                      <div className="space-y-2">
+                        {investorNotes.map((note) => {
+                          const proj = projects.find((p) => p.project_id === note.project_id);
+                          return (
+                            <div key={note.note_id} className="bg-surface-50 border border-brand-200/60 rounded-xl px-4 py-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${SENTIMENT_CONFIG[note.sentiment]?.dot || "bg-amber-400"}`}></div>
+                                <span className="text-xs text-ink-400">{note.meeting_date}</span>
+                                {proj && <span className="text-xs text-brand-600 font-medium">{proj.project_name}</span>}
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${SENTIMENT_CONFIG[note.sentiment]?.bg} ${SENTIMENT_CONFIG[note.sentiment]?.color}`}>
+                                  {SENTIMENT_CONFIG[note.sentiment]?.label}
+                                </span>
+                              </div>
+                              <p className="text-sm font-medium text-ink-800">{note.subject}</p>
+                              {note.summary && (
+                                <p className="text-xs text-ink-500 mt-0.5 line-clamp-2">{note.summary}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             )}

@@ -164,6 +164,11 @@ CREATE TABLE IF NOT EXISTS meetings (
 -- INVESTORS: origin column (br / intl)
 ALTER TABLE investors ADD COLUMN IF NOT EXISTS origin TEXT DEFAULT '';
 
+-- INVESTORS: individual investor support (pessoa física)
+ALTER TABLE investors ADD COLUMN IF NOT EXISTS investor_type TEXT DEFAULT 'fund';
+ALTER TABLE investors ADD COLUMN IF NOT EXISTS company_affiliation TEXT DEFAULT '';
+ALTER TABLE investors ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
+
 -- PROJECT_INVESTORS: wave column (1 / 2 / 3 / 4)
 ALTER TABLE project_investors ADD COLUMN IF NOT EXISTS wave TEXT DEFAULT '';
 

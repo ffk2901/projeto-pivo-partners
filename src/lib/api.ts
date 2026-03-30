@@ -122,6 +122,19 @@ export function api(prefix = "/api") {
       return fetchJson<import("@/types").ActivityLogEntry[]>(url);
     },
 
+    // Meeting Notes
+    getMeetingNotes: (params?: { investor_id?: string; project_id?: string; startup_id?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.investor_id) sp.set("investor_id", params.investor_id);
+      if (params?.project_id) sp.set("project_id", params.project_id);
+      if (params?.startup_id) sp.set("startup_id", params.startup_id);
+      const qs = sp.toString();
+      const url = qs ? `${prefix}/meeting-notes?${qs}` : `${prefix}/meeting-notes`;
+      return fetchJson<import("@/types").MeetingNote[]>(url);
+    },
+    createMeetingNote: (d: Partial<import("@/types").MeetingNote>) =>
+      post<import("@/types").MeetingNote>(`${prefix}/meeting-notes`, d),
+
     // Meeting Report
     getMeetingReport: (projectId: string) =>
       fetchJson<Record<string, unknown>>(`${prefix}/meeting-report?project_id=${projectId}`),
@@ -131,5 +144,23 @@ export function api(prefix = "/api") {
       post<{ success: boolean; task: import("@/types").Task; eventId?: string }>(`${prefix}/calendar-sync`, { task_id: taskId }),
     unsyncTaskFromCalendar: (taskId: string) =>
       post<{ success: boolean; task: import("@/types").Task }>(`${prefix}/calendar-sync`, { task_id: taskId, action: "unsync" }),
+
+    // Google Calendar (user OAuth)
+    getCalendarConnectionStatus: () =>
+      fetchJson<{ connected: boolean; email?: string; reason?: "not_connected" | "token_revoked" }>(`${prefix}/auth/status`),
+    getCalendarEvents: (date?: string, range?: "week") => {
+      const params = new URLSearchParams();
+      if (date) params.set("date", date);
+      if (range) params.set("range", range);
+      const qs = params.toString();
+      const url = qs ? `${prefix}/calendar/events?${qs}` : `${prefix}/calendar/events`;
+      return fetchJson<Record<string, unknown>[]>(url);
+    },
+    createNoteFromCalendar: (calendarEventId: string, projectId: string, investorId?: string) =>
+      post<unknown>(`${prefix}/meeting-notes/from-calendar`, {
+        calendar_event_id: calendarEventId,
+        project_id: projectId,
+        investor_id: investorId || "",
+      }),
   };
 }

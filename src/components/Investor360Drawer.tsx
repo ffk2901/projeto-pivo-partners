@@ -54,6 +54,9 @@ export default function Investor360Drawer({
     last_interaction_type: "", notes: "",
     origin: "" as Investor["origin"],
     wave: "" as ProjectInvestor["wave"],
+    investor_type: "" as Investor["investor_type"],
+    company_affiliation: "",
+    description: "",
   });
 
   const [showNoteForm, setShowNoteForm] = useState(false);
@@ -69,6 +72,8 @@ export default function Investor360Drawer({
   const [taskOwner, setTaskOwner] = useState("");
   const [taskDueDate, setTaskDueDate] = useState("");
   const [taskPriority, setTaskPriority] = useState("medium");
+  const [taskSyncToCal, setTaskSyncToCal] = useState(false);
+  const [taskSyncStatus, setTaskSyncStatus] = useState<string | null>(null);
 
   const [showMeetingForm, setShowMeetingForm] = useState(false);
   const [meetingTitle, setMeetingTitle] = useState("");
@@ -116,7 +121,7 @@ export default function Investor360Drawer({
         origin: investor.origin || "", wave: link.wave || "",
       });
     }
-  }, [link, investor.origin]);
+  }, [link, investor.origin, investor.investor_type, investor.company_affiliation, investor.description]);
 
   useEffect(() => {
     if (!open) return;
@@ -169,6 +174,7 @@ export default function Investor360Drawer({
   const handleAddTask = async () => {
     if (!taskTitle.trim()) return;
     setSaving(true);
+    setTaskSyncStatus(null);
     try {
       await api(apiPrefix).createTask({ project_id: projectId, investor_id: link.investor_id, startup_id: "", title: taskTitle, owner_id: taskOwner, due_date: taskDueDate, priority: taskPriority as Task["priority"] });
       setShowTaskForm(false); setTaskTitle(""); setTaskDueDate("");

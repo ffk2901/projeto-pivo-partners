@@ -28,7 +28,9 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
       (i) =>
         i.investor_name.toLowerCase().includes(q) ||
         i.tags.toLowerCase().includes(q) ||
-        i.email.toLowerCase().includes(q)
+        i.email.toLowerCase().includes(q) ||
+        (i.company_affiliation || "").toLowerCase().includes(q) ||
+        (i.description || "").toLowerCase().includes(q)
     );
   }, [available, search]);
 

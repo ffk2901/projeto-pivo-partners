@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
-import type { Task, TeamMember, Startup } from "@/types";
+import type { Task, TeamMember, Startup, MeetingNote, ProjectInvestor, Investor, Project } from "@/types";
+import { SENTIMENT_CONFIG } from "@/types";
 import Modal from "@/components/Modal";
 import TaskForm from "@/components/TaskForm";
+import CalendarWidget from "@/components/CalendarWidget";
 
 type Filter = "today" | "week" | "overdue";
 
@@ -37,6 +40,17 @@ function filterTasks(tasks: Task[], filter: Filter): Task[] {
   });
 }
 
+function daysAgo(dateStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "1 day ago";
+  return `${diffDays} days ago`;
+}
+
 const PRIORITY_COLORS = {
   high: "bg-red-100 text-red-700",
   medium: "bg-amber-100 text-amber-700",
@@ -47,6 +61,10 @@ export default function HomePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [team, setTeam] = useState<TeamMember[]>([]);
   const [startups, setStartups] = useState<Startup[]>([]);
+  const [meetingNotes, setMeetingNotes] = useState<MeetingNote[]>([]);
+  const [piLinks, setPiLinks] = useState<ProjectInvestor[]>([]);
+  const [investors, setInvestors] = useState<Investor[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [filter, setFilter] = useState<Filter>("today");
   const [loading, setLoading] = useState(true);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -54,17 +72,33 @@ export default function HomePage() {
   const [newStartupName, setNewStartupName] = useState("");
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState("");
+
+  // For calendar widget — use first team member as default team_id
+  // In a real app this would come from the auth session
+  const [currentTeamId, setCurrentTeamId] = useState("");
 
   const loadData = useCallback(async () => {
     try {
-      const [t, tm, s] = await Promise.all([
+      const [t, tm, s, mn, pi, inv, prj] = await Promise.all([
         api().getTasks(),
         api().getTeam(),
         api().getStartups(),
+        api().getMeetingNotes(),
+        api().getProjectInvestors(),
+        api().getInvestors(),
+        api().getProjects(),
       ]);
       setTasks(t);
       setTeam(tm);
       setStartups(s);
+      setMeetingNotes(mn);
+      setPiLinks(pi);
+      setInvestors(inv);
+      setProjects(prj);
+      if (tm.length > 0 && !currentTeamId) {
+        setCurrentTeamId(tm[0].team_id);
+      }
       setError(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -73,6 +107,13 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
+  }, [currentTeamId]);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then((d) => { if (d.user_id) setCurrentUserId(d.user_id); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -97,6 +138,38 @@ export default function HomePage() {
     (t) => t.status !== "done" && t.due_date && t.due_date < today
   );
   const activeStartups = startups.filter((s) => s.status === "active");
+
+  // Recent meeting notes (last 5)
+  const recentNotes = [...meetingNotes]
+    .sort((a, b) => (b.meeting_date || b.created_at).localeCompare(a.meeting_date || a.created_at))
+    .slice(0, 5);
+
+  // Pipeline highlights: active deals with most recent activity
+  const pipelineHighlights = (() => {
+    const activeStages = ["Trying to reach", "Active", "Advanced"];
+    const activeLinks = piLinks
+      .filter((l) => activeStages.includes(l.stage))
+      .sort((a, b) => (b.last_interaction_date || b.updated_at || "").localeCompare(a.last_interaction_date || a.updated_at || ""))
+      .slice(0, 5);
+
+    return activeLinks.map((link) => {
+      const inv = investors.find((i) => i.investor_id === link.investor_id);
+      const proj = projects.find((p) => p.project_id === link.project_id);
+      const startup = proj ? startups.find((s) => s.startup_id === proj.startup_id) : null;
+      const latestNote = meetingNotes
+        .filter((n) => n.investor_id === link.investor_id)
+        .sort((a, b) => (b.meeting_date || b.created_at).localeCompare(a.meeting_date || a.created_at))[0];
+
+      return {
+        link,
+        investor: inv,
+        project: proj,
+        startup,
+        latestNote,
+        lastInteraction: link.last_interaction_date || link.updated_at || "",
+      };
+    });
+  })();
 
   const handleCreateTask = async (data: Partial<Task>) => {
     try {
@@ -152,14 +225,23 @@ export default function HomePage() {
   const getStartupName = (id: string) =>
     startups.find((s) => s.startup_id === id)?.startup_name || "";
 
+  const getInvestorName = (id: string) =>
+    investors.find((i) => i.investor_id === id)?.investor_name || id;
+
   if (loading) {
     return (
       <div className="p-8">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-brand-200/40 rounded-lg w-48"></div>
-          <div className="grid grid-cols-2 gap-4 max-w-md">
+          <div className="grid grid-cols-4 gap-4">
             <div className="h-20 bg-brand-200/40 rounded-2xl"></div>
             <div className="h-20 bg-brand-200/40 rounded-2xl"></div>
+            <div className="h-20 bg-brand-200/40 rounded-2xl"></div>
+            <div className="h-20 bg-brand-200/40 rounded-2xl"></div>
+          </div>
+          <div className="grid grid-cols-3 gap-6">
+            <div className="col-span-2 h-96 bg-brand-200/40 rounded-2xl"></div>
+            <div className="h-96 bg-brand-200/40 rounded-2xl"></div>
           </div>
         </div>
       </div>
@@ -205,8 +287,8 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Summary cards */}
-      <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
+      {/* Summary cards — 4 columns */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-surface-0 border border-brand-200/60 rounded-2xl px-5 py-4">
           <p className="text-2xl font-bold text-ink-800">{activeStartups.length}</p>
           <p className="text-xs text-ink-400 mt-0.5">Active Startups</p>
@@ -217,106 +299,221 @@ export default function HomePage() {
           </p>
           <p className="text-xs text-ink-400 mt-0.5">Overdue Tasks</p>
         </div>
+        <div className="bg-surface-0 border border-brand-200/60 rounded-2xl px-5 py-4">
+          <p className="text-2xl font-bold text-ink-800">{meetingNotes.length}</p>
+          <p className="text-xs text-ink-400 mt-0.5">Meeting Notes</p>
+        </div>
+        <div className="bg-surface-0 border border-brand-200/60 rounded-2xl px-5 py-4">
+          <p className="text-2xl font-bold text-ink-800">{piLinks.filter((l) => ["Active", "Advanced"].includes(l.stage)).length}</p>
+          <p className="text-xs text-ink-400 mt-0.5">Active Deals</p>
+        </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-1 mb-6">
-        {(["today", "week", "overdue"] as Filter[]).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3.5 py-1.5 text-sm rounded-xl capitalize font-medium transition-colors ${
-              filter === f
-                ? "bg-brand-500 text-white shadow-sm"
-                : "text-ink-500 bg-surface-0 border border-brand-200/60 hover:bg-brand-50"
-            }`}
-          >
-            {f === "week" ? "This Week" : f}
-          </button>
-        ))}
-      </div>
+      {/* 3-column layout */}
+      <div className="grid grid-cols-3 gap-6">
+        {/* LEFT COLUMN — 2/3 width */}
+        <div className="col-span-2 space-y-6">
+          {/* Calendar Widget */}
+          {currentUserId && (
+            <CalendarWidget userId={currentUserId} />
+          )}
 
-      {/* Tasks by owner */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {groupedByOwner.map(({ member, tasks: memberTasks }) => (
-          <div key={member.team_id}>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-bold">
-                {member.name.charAt(0).toUpperCase()}
-              </div>
-              <h3 className="text-sm font-semibold text-ink-700">{member.name}</h3>
-              <span className="text-xs text-ink-400">({memberTasks.length})</span>
+          {/* Recent Meeting Notes */}
+          <div className="bg-surface-0 border border-brand-200/60 rounded-2xl">
+            <div className="px-5 py-3 border-b border-brand-200/60">
+              <h3 className="text-sm font-semibold text-ink-700">Recent Meeting Notes</h3>
             </div>
-            <div className="space-y-2">
-              {memberTasks.length === 0 && (
-                <p className="text-xs text-ink-300 py-2 italic">No tasks</p>
-              )}
-              {memberTasks.map((task) => (
-                <div key={task.task_id} className="bg-surface-0 border border-brand-200/60 rounded-xl px-3 py-2.5 hover:border-brand-400 transition-colors">
-                  <div className="flex items-start gap-2">
-                    <button
-                      onClick={() => handleToggleDone(task)}
-                      className="mt-0.5 w-4 h-4 rounded border border-brand-300 flex-shrink-0 hover:border-brand-500 flex items-center justify-center transition-colors"
-                    >
-                      {task.status === "done" && (
-                        <span className="text-brand-600 text-xs">&#10003;</span>
-                      )}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <p className="text-sm text-ink-800 leading-snug">{task.title}</p>
-                        <button
-                          onClick={() => setEditingTask(task)}
-                          className="text-ink-300 hover:text-ink-500 text-xs ml-2 flex-shrink-0 transition-colors"
+            <div className="p-3">
+              {recentNotes.length === 0 ? (
+                <p className="text-sm text-ink-400 text-center py-6">No meeting notes yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {recentNotes.map((note) => (
+                    <div key={note.note_id} className="flex items-start gap-3 px-2 py-2 rounded-lg hover:bg-brand-50/50 transition-colors">
+                      <div className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${SENTIMENT_CONFIG[note.sentiment]?.dot || "bg-amber-400"}`}></div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-ink-400">{note.meeting_date}</span>
+                          {note.investor_id && (
+                            <span className="text-xs text-brand-600 font-medium">{getInvestorName(note.investor_id)}</span>
+                          )}
+                        </div>
+                        <p className="text-sm font-medium text-ink-800 truncate">{note.subject}</p>
+                        <p className="text-xs text-ink-400 line-clamp-1 mt-0.5">{note.summary}</p>
+                      </div>
+                      {note.project_id && (
+                        <Link
+                          href={`/projects/${note.project_id}`}
+                          className="text-[10px] text-brand-500 hover:text-brand-700 flex-shrink-0"
                         >
-                          edit
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        {task.due_date && (
-                          <span className={`text-xs ${task.due_date < today ? "text-red-500 font-medium" : "text-ink-400"}`}>
-                            {task.due_date}
-                          </span>
-                        )}
-                        {task.startup_id && (
-                          <span className="text-xs text-ink-400">{getStartupName(task.startup_id)}</span>
-                        )}
-                        {task.priority && task.priority !== "medium" && (
-                          <span className={`text-xs px-1.5 py-0.5 rounded-md ${PRIORITY_COLORS[task.priority]}`}>
-                            {task.priority}
-                          </span>
-                        )}
-                      </div>
+                          View →
+                        </Link>
+                      )}
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Unassigned */}
-      {unassigned.length > 0 && (
-        <div className="mt-6">
-          <h3 className="text-sm font-semibold text-ink-500 mb-3">Unassigned ({unassigned.length})</h3>
-          <div className="space-y-2 max-w-md">
-            {unassigned.map((task) => (
-              <div key={task.task_id} className="bg-surface-0 border border-brand-200/60 rounded-xl px-3 py-2.5">
-                <div className="flex items-start justify-between">
-                  <p className="text-sm text-ink-800">{task.title}</p>
-                  <button onClick={() => setEditingTask(task)} className="text-ink-300 hover:text-ink-500 text-xs ml-2 flex-shrink-0 transition-colors">edit</button>
-                </div>
-                {task.due_date && (
-                  <span className={`text-xs ${task.due_date < today ? "text-red-500 font-medium" : "text-ink-400"}`}>
-                    {task.due_date}
-                  </span>
-                )}
-              </div>
-            ))}
           </div>
         </div>
-      )}
+
+        {/* RIGHT COLUMN — 1/3 width */}
+        <div className="space-y-6">
+          {/* Tasks section */}
+          <div className="bg-surface-0 border border-brand-200/60 rounded-2xl">
+            <div className="px-5 py-3 border-b border-brand-200/60">
+              <h3 className="text-sm font-semibold text-ink-700">Today&apos;s Tasks</h3>
+            </div>
+            <div className="px-3 py-2">
+              {/* Filters */}
+              <div className="flex gap-1 mb-3">
+                {(["today", "week", "overdue"] as Filter[]).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={`px-2.5 py-1 text-xs rounded-lg capitalize font-medium transition-colors ${
+                      filter === f
+                        ? "bg-brand-500 text-white shadow-sm"
+                        : "text-ink-500 bg-surface-0 border border-brand-200/60 hover:bg-brand-50"
+                    }`}
+                  >
+                    {f === "week" ? "This Week" : f}
+                  </button>
+                ))}
+              </div>
+
+              {/* Tasks by owner */}
+              <div className="space-y-4">
+                {groupedByOwner.map(({ member, tasks: memberTasks }) => (
+                  <div key={member.team_id}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-6 h-6 rounded-md bg-brand-100 text-brand-700 flex items-center justify-center text-[10px] font-bold">
+                        {member.name.charAt(0).toUpperCase()}
+                      </div>
+                      <h4 className="text-xs font-semibold text-ink-700">{member.name}</h4>
+                      <span className="text-[10px] text-ink-400">({memberTasks.length})</span>
+                    </div>
+                    <div className="space-y-1.5">
+                      {memberTasks.length === 0 && (
+                        <p className="text-[10px] text-ink-300 py-1 italic">No tasks</p>
+                      )}
+                      {memberTasks.map((task) => (
+                        <div key={task.task_id} className="flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-brand-50/50 transition-colors group">
+                          <button
+                            onClick={() => handleToggleDone(task)}
+                            className="mt-0.5 w-3.5 h-3.5 rounded border border-brand-300 flex-shrink-0 hover:border-brand-500 flex items-center justify-center transition-colors"
+                          >
+                            {task.status === "done" && (
+                              <span className="text-brand-600 text-[10px]">&#10003;</span>
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-ink-800 leading-snug">{task.title}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              {task.due_date && (
+                                <span className={`text-[10px] ${task.due_date < today ? "text-red-500 font-medium" : "text-ink-400"}`}>
+                                  {task.due_date}
+                                </span>
+                              )}
+                              {task.priority && task.priority !== "medium" && (
+                                <span className={`text-[10px] px-1 py-0 rounded ${PRIORITY_COLORS[task.priority]}`}>
+                                  {task.priority}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setEditingTask(task)}
+                            className="text-ink-300 hover:text-ink-500 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            edit
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {unassigned.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold text-ink-500 mb-2">Unassigned ({unassigned.length})</h4>
+                    <div className="space-y-1.5">
+                      {unassigned.map((task) => (
+                        <div key={task.task_id} className="flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-brand-50/50 transition-colors">
+                          <button
+                            onClick={() => handleToggleDone(task)}
+                            className="mt-0.5 w-3.5 h-3.5 rounded border border-brand-300 flex-shrink-0 hover:border-brand-500 flex items-center justify-center transition-colors"
+                          >
+                            {task.status === "done" && (
+                              <span className="text-brand-600 text-[10px]">&#10003;</span>
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-ink-800">{task.title}</p>
+                            {task.due_date && (
+                              <span className={`text-[10px] ${task.due_date < today ? "text-red-500 font-medium" : "text-ink-400"}`}>
+                                {task.due_date}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Pipeline Highlights */}
+          <div className="bg-surface-0 border border-brand-200/60 rounded-2xl">
+            <div className="px-5 py-3 border-b border-brand-200/60">
+              <h3 className="text-sm font-semibold text-ink-700">Pipeline Highlights</h3>
+            </div>
+            <div className="p-3">
+              {pipelineHighlights.length === 0 ? (
+                <p className="text-sm text-ink-400 text-center py-6">No active deals</p>
+              ) : (
+                <div className="space-y-2">
+                  {pipelineHighlights.map(({ link, investor, project, startup, latestNote, lastInteraction }) => (
+                    <div key={link.link_id} className="px-2 py-2 rounded-lg hover:bg-brand-50/50 transition-colors">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-ink-800 truncate">
+                            {startup?.startup_name || ""} × {investor?.investor_name || ""}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <span className="text-[10px] px-1.5 py-0.5 bg-brand-100 text-brand-700 rounded font-medium">
+                              {link.stage}
+                            </span>
+                            {latestNote && (
+                              <div className={`w-1.5 h-1.5 rounded-full ${SENTIMENT_CONFIG[latestNote.sentiment]?.dot || "bg-amber-400"}`}></div>
+                            )}
+                            {latestNote?.sentiment === "negative" && (
+                              <span className="text-[10px] px-1 py-0 bg-red-100 text-red-700 rounded font-medium">At risk</span>
+                            )}
+                          </div>
+                        </div>
+                        {project && (
+                          <Link
+                            href={`/projects/${project.project_id}`}
+                            className="text-[10px] text-brand-500 hover:text-brand-700 flex-shrink-0"
+                          >
+                            View
+                          </Link>
+                        )}
+                      </div>
+                      {lastInteraction && (
+                        <p className="text-[10px] text-ink-400 mt-1">Last: {daysAgo(lastInteraction)}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Add Task Modal */}
       <Modal open={showAddTask} onClose={() => setShowAddTask(false)} title="Add Task">

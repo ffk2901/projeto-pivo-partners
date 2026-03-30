@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/api-auth";
 import { getTasks, updateTask, getTeam } from "@/lib/db";
-import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from "@/lib/calendar";
+import { createCalendarEvent, updateCalendarEvent, deleteCalendarEvent, testCalendarConnection } from "@/lib/calendar";
 
 export const dynamic = "force-dynamic";
 
@@ -25,9 +25,16 @@ export async function POST(req: NextRequest) {
     const team = await getTeam();
     const owner = team.find((m) => m.team_id === task.owner_id);
 
-    if (!owner?.email) {
+    if (!owner) {
       return NextResponse.json(
-        { error: "Task owner does not have an email configured. Please add an email to the team member first." },
+        { error: "Task has no owner assigned. Assign a team member first." },
+        { status: 400 }
+      );
+    }
+
+    if (!owner.email) {
+      return NextResponse.json(
+        { error: `Task owner "${owner.name}" does not have an email address. Add their email in the Team settings first.` },
         { status: 400 }
       );
     }
@@ -56,6 +63,21 @@ export async function POST(req: NextRequest) {
       };
       await updateTask(updated);
       return NextResponse.json({ success: true, task: updated });
+    }
+
+    // Check calendar connectivity before attempting sync
+    const calCheck = await testCalendarConnection();
+    if (!calCheck.connected) {
+      const updated = {
+        ...task,
+        sync_status: "failed" as const,
+        updated_at: new Date().toISOString(),
+      };
+      await updateTask(updated);
+      return NextResponse.json(
+        { error: calCheck.error || "Google Calendar is not reachable", task: updated },
+        { status: 502 }
+      );
     }
 
     // Create or update calendar event

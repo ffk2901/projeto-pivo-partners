@@ -6,6 +6,7 @@ interface HealthData {
   connected: boolean;
   counts: Record<string, number>;
   error?: string;
+  calendar?: { connected: boolean; error?: string };
 }
 
 export default function HealthPage() {
@@ -30,6 +31,7 @@ export default function HealthPage() {
 
       {data && (
         <div className="space-y-4">
+          {/* Database connection */}
           <div
             className={`flex items-center gap-3 p-4 rounded-lg border ${
               data.connected
@@ -44,10 +46,37 @@ export default function HealthPage() {
             />
             <span className="font-medium">
               {data.connected
-                ? "Connected to Google Sheets"
-                : "Connection Failed"}
+                ? "Connected to Supabase"
+                : "Database Connection Failed"}
             </span>
           </div>
+
+          {/* Calendar connection */}
+          {data.calendar && (
+            <div
+              className={`flex items-center gap-3 p-4 rounded-lg border ${
+                data.calendar.connected
+                  ? "bg-green-50 border-green-200"
+                  : "bg-amber-50 border-amber-200"
+              }`}
+            >
+              <div
+                className={`w-3 h-3 rounded-full ${
+                  data.calendar.connected ? "bg-green-500" : "bg-amber-500"
+                }`}
+              />
+              <div>
+                <span className="font-medium">
+                  {data.calendar.connected
+                    ? "Google Calendar Connected"
+                    : "Google Calendar Not Connected"}
+                </span>
+                {data.calendar.error && (
+                  <p className="text-sm text-amber-700 mt-1">{data.calendar.error}</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {data.error && (
             <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
