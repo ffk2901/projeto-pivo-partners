@@ -185,15 +185,6 @@ function InvestorCard({
           <p className="body-sm text-md-on_surface_variant mt-0.5">{investorType}</p>
         )}
 
-        {/* Status chip (if stalled/analyzing) */}
-        {isStalled && (
-          <div className="mt-2 bg-amber-50 rounded-xl px-3 py-2">
-            <div className="flex items-center gap-1.5">
-              <span className="label-sm text-amber-700 text-[10px]">! STALLED</span>
-            </div>
-          </div>
-        )}
-
         {/* Next step */}
         {(link.next_step || link.next_action) && (
           <div className="mt-2 bg-md-surface_container_low rounded-xl px-3 py-2">
@@ -237,14 +228,14 @@ function InvestorCard({
 
         {/* Tags */}
         {visibleTags.length > 0 && (
-          <div className="flex items-center gap-1 mt-2">
+          <div className="flex items-center gap-1 mt-2 flex-wrap">
             {visibleTags.map((tag) => (
-              <span key={tag} className="label-sm text-[9px] px-2 py-0.5 bg-md-surface_container_high text-md-on_surface_variant rounded-lg">
+              <span key={tag} className="text-xs px-2 py-0.5 bg-[#f0ebe5] text-md-on_surface rounded-lg font-medium" style={{ border: "1px solid rgba(211, 196, 185, 0.3)" }}>
                 {tag.toUpperCase()}
               </span>
             ))}
             {extraTagCount > 0 && (
-              <span className="text-[9px] text-md-on_surface_variant">+{extraTagCount}</span>
+              <span className="text-[10px] px-1.5 py-0.5 bg-md-surface_container text-md-on_surface_variant/60 rounded-md font-medium">+{extraTagCount}</span>
             )}
           </div>
         )}
@@ -253,15 +244,15 @@ function InvestorCard({
         {(investor?.origin || link.wave) && (
           <div className="flex items-center gap-1.5 mt-2">
             {investor?.origin === "br" && (
-              <span className="text-[10px] px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-lg font-semibold">BR</span>
+              <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-lg font-semibold" style={{ border: "1px solid rgb(167, 243, 208)" }}>BR</span>
             )}
             {investor?.origin === "intl" && (
-              <span className="text-[10px] px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-lg font-semibold">INTL</span>
+              <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-lg font-semibold" style={{ border: "1px solid rgb(191, 219, 254)" }}>INTL</span>
             )}
             {link.wave && (
-              <span className={`text-[10px] px-2.5 py-0.5 rounded-lg font-semibold ${
-                { "1": "bg-violet-50 text-violet-700", "2": "bg-sky-50 text-sky-700", "3": "bg-orange-50 text-orange-700", "4": "bg-pink-50 text-pink-700" }[link.wave] || "bg-violet-50 text-violet-700"
-              }`}>
+              <span className={`text-xs px-2 py-0.5 rounded-lg font-semibold ${
+                { "1": "bg-violet-100 text-violet-800", "2": "bg-sky-100 text-sky-800", "3": "bg-orange-100 text-orange-800", "4": "bg-pink-100 text-pink-800" }[link.wave] || "bg-violet-100 text-violet-800"
+              }`} style={{ border: "1px solid rgba(196, 181, 253, 0.5)" }}>
                 W{link.wave}
               </span>
             )}
