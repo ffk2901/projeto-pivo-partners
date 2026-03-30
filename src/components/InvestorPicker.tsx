@@ -57,7 +57,7 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
     <Modal open={open} onClose={handleClose} title="Add Investor to Funnel">
       <div className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          <div className="bg-md-error_container rounded-2xl px-4 py-3 text-sm text-md-error">
             {error}
           </div>
         )}
@@ -70,11 +70,11 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
             placeholder="Search investors by name, tags, or email..."
             autoFocus
             disabled={loading}
-            className="w-full border border-brand-200 rounded-xl px-4 py-2.5 text-sm bg-surface-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 focus:border-brand-500 placeholder:text-ink-400 disabled:opacity-50"
+            className="w-full rounded-2xl px-4 py-3 text-sm bg-md-surface_container_highest text-md-on_surface focus:outline-none focus:ring-2 focus:ring-md-primary_container/40 placeholder:text-md-on_surface_variant/50 disabled:opacity-50"
           />
         </div>
 
-        <p className="text-xs text-ink-500">
+        <p className="text-xs text-md-on_surface_variant">
           {filtered.length} investor{filtered.length !== 1 ? "s" : ""} available
           {excludeIds.size > 0 && ` (${excludeIds.size} already in funnel)`}
         </p>
@@ -82,12 +82,12 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
         <div className="max-h-72 overflow-y-auto space-y-1 -mx-1 px-1">
           {loading ? (
             <div className="text-center py-8">
-              <div className="inline-block w-5 h-5 border-2 border-brand-300 border-t-brand-600 rounded-full animate-spin mb-2"></div>
-              <p className="text-sm text-ink-400">Adding investor...</p>
+              <div className="inline-block w-5 h-5 border-2 border-md-outline_variant border-t-md-primary_container rounded-full animate-spin mb-2"></div>
+              <p className="text-sm text-md-on_surface_variant">Adding investor...</p>
             </div>
           ) : filtered.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-sm text-ink-400">
+              <p className="text-sm text-md-on_surface_variant">
                 {available.length === 0
                   ? "All investors are already in this funnel."
                   : "No investors match your search."}
@@ -99,29 +99,29 @@ export default function InvestorPicker({ open, onClose, investors, excludeIds, o
                 key={inv.investor_id}
                 onClick={() => handleSelect(inv.investor_id)}
                 disabled={loading}
-                className="w-full text-left px-3 py-2.5 rounded-xl hover:bg-brand-100/60 transition-colors group disabled:opacity-50"
+                className="w-full text-left px-3 py-2.5 rounded-2xl hover:bg-md-surface_container_low transition-colors group disabled:opacity-50"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-ink-800 group-hover:text-brand-700">
+                    <p className="text-sm font-medium text-md-on_surface group-hover:text-md-primary">
                       {inv.investor_name}
                     </p>
                     <div className="flex items-center gap-2 mt-0.5">
                       {inv.tags && (
                         <div className="flex flex-wrap gap-1">
                           {inv.tags.split(";").filter(Boolean).slice(0, 3).map((tag) => (
-                            <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-brand-100 text-brand-600 rounded-md">
+                            <span key={tag} className="text-[10px] px-1.5 py-0.5 bg-md-surface_container_high text-md-on_surface_variant rounded-lg">
                               {tag.trim()}
                             </span>
                           ))}
                         </div>
                       )}
                       {inv.email && (
-                        <span className="text-[10px] text-ink-400">{inv.email}</span>
+                        <span className="text-[10px] text-md-on_surface_variant">{inv.email}</span>
                       )}
                     </div>
                   </div>
-                  <span className="text-xs text-brand-500 opacity-0 group-hover:opacity-100 transition-opacity font-medium">
+                  <span className="text-xs text-md-primary_container opacity-0 group-hover:opacity-100 transition-opacity font-medium">
                     Add
                   </span>
                 </div>

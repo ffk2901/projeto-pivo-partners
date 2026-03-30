@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import Sidebar from "./Sidebar";
+import TopHeader from "./TopHeader";
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -16,7 +17,10 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   return (
     <>
       <Sidebar />
-      <main className="flex-1 overflow-auto">{children}</main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TopHeader />
+        <main className="flex-1 overflow-auto">{children}</main>
+      </div>
     </>
   );
 }
