@@ -27,26 +27,26 @@ export default function Modal({ open, onClose, title, children, wide }: ModalPro
   return (
     <div
       ref={overlayRef}
-      className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-brand-900/40 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-md-on_surface/40 backdrop-blur-sm"
       onClick={(e) => {
         if (e.target === overlayRef.current) onClose();
       }}
     >
       <div
-        className={`bg-surface-0 rounded-2xl shadow-xl border border-brand-200/60 ${
+        className={`bg-md-surface_container_lowest rounded-2xl shadow-ambient-lg ${
           wide ? "w-full max-w-2xl" : "w-full max-w-md"
         } max-h-[80vh] flex flex-col`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-brand-100">
-          <h2 className="text-base font-semibold text-ink-800">{title}</h2>
+        <div className="flex items-center justify-between px-6 py-4">
+          <h2 className="headline-md text-md-on_surface">{title}</h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-ink-400 hover:text-ink-700 hover:bg-brand-100 transition-colors text-lg leading-none"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-md-on_surface_variant hover:text-md-on_surface hover:bg-md-surface_container_high transition-colors text-xl leading-none"
           >
             &times;
           </button>
         </div>
-        <div className="p-6 overflow-y-auto flex-1">{children}</div>
+        <div className="px-6 pb-6 overflow-y-auto flex-1">{children}</div>
       </div>
     </div>
   );

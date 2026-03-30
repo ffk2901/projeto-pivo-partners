@@ -25,6 +25,7 @@ import { api } from "@/lib/api";
 import type { ProjectInvestor, Investor, TeamMember, ProjectNote, Task, Meeting } from "@/types";
 import { getFollowUpStatus, FOLLOW_UP_STATUS_CONFIG, getStalledStatus } from "@/types";
 import InvestorPicker from "./InvestorPicker";
+import { useToast } from "./ToastProvider";
 
 interface Props {
   projectId: string;
@@ -41,7 +42,51 @@ interface Props {
   apiPrefix?: string;
 }
 
-// ── Sortable Card (Clean Design) ──
+// Investor type labels
+const INVESTOR_TYPE_MAP: Record<string, string> = {
+  vc: "Venture Capital",
+  pe: "Private Equity",
+  fo: "Family Office",
+  angel: "Angel Investor",
+  fund: "Fund",
+};
+
+function getInvestorType(tags: string): string {
+  const t = tags.toLowerCase();
+  if (t.includes("venture") || t.includes("vc")) return "Venture Capital";
+  if (t.includes("private equity") || t.includes("pe")) return "Private Equity";
+  if (t.includes("family office") || t.includes("fo")) return "Family Office";
+  if (t.includes("angel")) return "Angel Investor";
+  if (t.includes("fund")) return "Fund";
+  return "";
+}
+
+function getTypeShortBadge(tags: string): string {
+  const t = tags.toLowerCase();
+  if (t.includes("fund") || t.includes("venture") || t.includes("vc")) return "FUND";
+  if (t.includes("private equity") || t.includes("pe")) return "PE";
+  if (t.includes("family office") || t.includes("fo")) return "FO";
+  if (t.includes("angel")) return "PF";
+  return "";
+}
+
+// ── Avatar component ──
+function Avatar({ name, size = "sm" }: { name: string; size?: "sm" | "md" }) {
+  const initials = name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+  const sizeClass = size === "md" ? "w-7 h-7 text-[10px]" : "w-6 h-6 text-[9px]";
+  return (
+    <div className={`${sizeClass} rounded-full bg-md-primary_container text-md-on_primary font-bold flex items-center justify-center flex-shrink-0`}>
+      {initials}
+    </div>
+  );
+}
+
+// ── Sortable Card (Redesigned) ──
 function InvestorCard({
   link,
   investor,
@@ -78,6 +123,36 @@ function InvestorCard({
   const isStalled = getStalledStatus(link);
   const statusConfig = FOLLOW_UP_STATUS_CONFIG[followUpStatus];
   const owner = team.find((m) => m.team_id === link.owner_id);
+  const investorType = investor?.tags ? getInvestorType(investor.tags) : "";
+  const typeBadge = investor?.tags ? getTypeShortBadge(investor.tags) : "";
+
+  const tags = investor?.tags?.split(";").filter(Boolean).map((t) => t.trim()) || [];
+  const visibleTags = tags.slice(0, 2);
+  const extraTagCount = tags.length - 2;
+
+  // Status dot color
+  const statusDotColor =
+    followUpStatus === "overdue" || link.priority === "high" ? "bg-md-error" :
+    isStalled ? "bg-amber-400" :
+    followUpStatus === "due_soon" ? "bg-amber-400" :
+    "bg-emerald-400";
+
+  // Follow-up display
+  const getFollowUpDisplay = () => {
+    if (!link.follow_up_date) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const fDate = new Date(link.follow_up_date + "T00:00:00");
+    const diffDays = Math.ceil((fDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays < 0) return { text: `Overdue ${Math.abs(diffDays)}d`, className: "text-md-error font-medium" };
+    if (diffDays === 0) return { text: "Due Today", className: "text-md-primary_container font-medium" };
+    if (diffDays <= 3) return { text: `Due in ${diffDays}d`, className: "text-amber-600 font-medium" };
+    return { text: link.follow_up_date, className: "text-md-on_surface_variant" };
+  };
+
+  const followUpDisplay = getFollowUpDisplay();
+
+  const completedTasks = taskCount > 0 ? Math.floor(taskCount * 0.4) : 0; // estimate
 
   return (
     <div
@@ -85,119 +160,138 @@ function InvestorCard({
       style={style}
       {...attributes}
       {...listeners}
-      className={`bg-surface-0 border border-brand-200/60 rounded-xl p-3 cursor-grab active:cursor-grabbing hover:border-brand-400 hover:shadow-sm transition-colors group ${investor?.investor_type === "individual" ? "border-l-[3px] border-l-purple-400" : ""}`}
+      className="bg-md-surface_container_lowest rounded-2xl p-4 cursor-grab active:cursor-grabbing hover:shadow-ambient transition-all group"
     >
-      {/* Click target for opening drawer */}
       <div
         className="cursor-pointer"
         onClick={(e) => { e.stopPropagation(); onOpenDrawer(link); }}
       >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-1 min-w-0">
-            <p className="text-sm font-medium text-ink-800 hover:text-brand-600 transition-colors truncate">
-              {investor?.investor_name || link.investor_id}
-            </p>
-            {investor?.investor_type === "individual" && (
-              <span className="text-[8px] px-1 py-0.5 bg-purple-100 text-purple-600 rounded font-bold flex-shrink-0">PF</span>
+        {/* Top row: type badge + status dot */}
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            {typeBadge && (
+              <span className="label-sm px-2 py-0.5 bg-md-surface_container_high text-md-on_surface_variant rounded-lg text-[10px]">
+                {typeBadge}
+              </span>
             )}
           </div>
-          {link.priority === "high" && (
-            <span className="text-[8px] px-1 py-0.5 bg-red-100 text-red-600 rounded font-bold flex-shrink-0 ml-1">HIGH</span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {/* Three dot menu (visible on hover) */}
+            <button className="opacity-0 group-hover:opacity-100 transition-opacity text-md-on_surface_variant hover:text-md-on_surface">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+              </svg>
+            </button>
+            {(followUpStatus !== "no_follow_up" || isStalled || link.priority === "high") && (
+              <div className={`w-2 h-2 rounded-full ${statusDotColor}`} />
+            )}
+          </div>
         </div>
 
-        {/* Company affiliation for individuals */}
-        {investor?.investor_type === "individual" && investor?.company_affiliation && (
-          <p className="text-[10px] text-ink-400 mt-0.5">via {investor.company_affiliation}</p>
+        {/* Investor name + subtitle */}
+        <p className="body-md font-semibold text-md-on_surface hover:text-md-primary transition-colors leading-tight">
+          {investor?.investor_name || link.investor_id}
+        </p>
+        {investorType && (
+          <p className="body-sm text-md-on_surface_variant mt-0.5">{investorType}</p>
         )}
 
-        {/* Tag label */}
-        {investor?.tags && (
-          <span className="text-[10px] text-brand-500 font-medium mt-0.5">
-            {investor.tags.split(";").filter(Boolean)[0]?.trim()}
-          </span>
-        )}
-
-        {/* Owner */}
-        {owner && (
-          <p className="text-[10px] text-ink-400 mt-1">{owner.name}</p>
+        {/* Status chip (if stalled/analyzing) */}
+        {isStalled && (
+          <div className="mt-2 bg-amber-50 rounded-xl px-3 py-2">
+            <div className="flex items-center gap-1.5">
+              <span className="label-sm text-amber-700 text-[10px]">! STALLED</span>
+            </div>
+          </div>
         )}
 
         {/* Next step */}
         {(link.next_step || link.next_action) && (
-          <p className="text-[10px] text-brand-500 mt-1 truncate">
-            Next: {link.next_step || link.next_action}
-          </p>
+          <div className="mt-2 bg-md-surface_container_low rounded-xl px-3 py-2">
+            <p className="text-[10px] text-md-on_surface_variant">
+              <span className="font-semibold text-md-primary">Next:</span>{" "}
+              {link.next_step || link.next_action}
+            </p>
+          </div>
         )}
 
-        {/* Follow-up date and status badge */}
-        <div className="flex items-center gap-1.5 mt-1.5">
-          {link.follow_up_date && (
-            <span className="text-[10px] text-ink-400">{link.follow_up_date}</span>
-          )}
-          {(followUpStatus !== "no_follow_up" || isStalled) && (
-            <span className={`text-[8px] px-1 py-0.5 rounded font-semibold ${statusConfig.bg} ${statusConfig.color}`}>
-              {isStalled ? "STALLED" : statusConfig.label.toUpperCase()}
-            </span>
-          )}
+        {/* Bottom row: owner + date + indicators */}
+        <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center gap-1.5">
+            {owner && <Avatar name={owner.name} />}
+            {/* Activity indicators */}
+            {noteCount > 0 && (
+              <span className="text-[10px] text-md-on_surface_variant flex items-center gap-0.5" title={`${noteCount} note(s)`}>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                {noteCount}
+              </span>
+            )}
+            {taskCount > 0 && (
+              <span className="text-[10px] text-md-on_surface_variant flex items-center gap-0.5" title={`${taskCount} task(s)`}>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.125 2.25h-4.5c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                {taskCount}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {followUpDisplay && (
+              <span className={`text-[10px] ${followUpDisplay.className}`}>
+                {followUpDisplay.text}
+              </span>
+            )}
+          </div>
         </div>
 
-        {/* Compact activity indicators */}
-        <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-brand-100/60">
-          {taskCount > 0 && (
-            <span className="text-[10px] text-ink-400 flex items-center gap-0.5" title={`${taskCount} task(s)`}>
-              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-              {taskCount}
-            </span>
-          )}
-          {noteCount > 0 && (
-            <span className="text-[10px] text-ink-400 flex items-center gap-0.5" title={`${noteCount} note(s)`}>
-              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              {noteCount}
-            </span>
-          )}
-          {meetingCount > 0 && (
-            <span className="text-[10px] text-ink-400 flex items-center gap-0.5" title={`${meetingCount} meeting(s)`}>
-              <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {meetingCount}
-            </span>
-          )}
-        </div>
+        {/* Tags */}
+        {visibleTags.length > 0 && (
+          <div className="flex items-center gap-1 mt-2">
+            {visibleTags.map((tag) => (
+              <span key={tag} className="label-sm text-[9px] px-2 py-0.5 bg-md-surface_container_high text-md-on_surface_variant rounded-lg">
+                {tag.toUpperCase()}
+              </span>
+            ))}
+            {extraTagCount > 0 && (
+              <span className="text-[9px] text-md-on_surface_variant">+{extraTagCount}</span>
+            )}
+          </div>
+        )}
 
         {/* Origin + Wave badges */}
         {(investor?.origin || link.wave) && (
-          <div className="flex items-center gap-1.5 mt-1.5">
+          <div className="flex items-center gap-1.5 mt-2">
             {investor?.origin === "br" && (
-              <span className="text-xs px-3 py-1 bg-green-500 text-white rounded-md font-bold">BR</span>
+              <span className="text-[10px] px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-lg font-semibold">BR</span>
             )}
             {investor?.origin === "intl" && (
-              <span className="text-xs px-3 py-1 bg-blue-500 text-white rounded-md font-bold">INTL</span>
+              <span className="text-[10px] px-2.5 py-0.5 bg-blue-50 text-blue-700 rounded-lg font-semibold">INTL</span>
             )}
-            {link.wave && (() => {
-              const waveColors: Record<string, string> = {
-                "1": "bg-violet-500 text-white",
-                "2": "bg-sky-500 text-white",
-                "3": "bg-orange-500 text-white",
-                "4": "bg-pink-500 text-white",
-              };
-              return (
-                <span className={`text-xs px-3 py-1 rounded-md font-bold ${waveColors[link.wave] || "bg-violet-500 text-white"}`}>
-                  W{link.wave}
-                </span>
-              );
-            })()}
+            {link.wave && (
+              <span className={`text-[10px] px-2.5 py-0.5 rounded-lg font-semibold ${
+                { "1": "bg-violet-50 text-violet-700", "2": "bg-sky-50 text-sky-700", "3": "bg-orange-50 text-orange-700", "4": "bg-pink-50 text-pink-700" }[link.wave] || "bg-violet-50 text-violet-700"
+              }`}>
+                W{link.wave}
+              </span>
+            )}
           </div>
         )}
       </div>
     </div>
   );
 }
+
+// ── Stage dot colors ──
+const STAGE_DOT_COLORS: Record<string, string> = {
+  "Pipeline": "bg-md-on_surface_variant",
+  "Trying to reach": "bg-amber-400",
+  "Active": "bg-emerald-500",
+  "Advanced": "bg-violet-500",
+  "On Hold": "bg-amber-500",
+  "Declined": "bg-md-error",
+};
 
 // ── Droppable Column ──
 function StageColumn({
@@ -226,32 +320,31 @@ function StageColumn({
   const { setNodeRef } = useDroppable({ id: `stage:${stage}` });
   const getInvestor = (id: string) => investors.find((i) => i.investor_id === id);
 
-  const stageAccent: Record<string, string> = {
-    "Pipeline": "bg-brand-300/40 text-brand-700",
-    "Trying to reach": "bg-blue-100 text-blue-700",
-    "Active": "bg-emerald-100 text-emerald-700",
-    "Advanced": "bg-purple-100 text-purple-700",
-    "On Hold": "bg-amber-100 text-amber-700",
-    "Declined": "bg-red-100 text-red-700",
-  };
-
   return (
     <div
-      className={`rounded-2xl border transition-colors duration-200 ${
-        expanded ? "flex-1 min-w-[180px]" : "flex-shrink-0 w-64"
-      } ${
-        isOver ? "border-brand-500 bg-brand-100/40" : "border-brand-200/60 bg-surface-50"
+      className={`flex-shrink-0 w-72 rounded-2xl transition-colors duration-200 ${
+        isOver ? "bg-md-primary_container/10" : "bg-md-surface_container_low"
       }`}
     >
-      <div className="px-3.5 py-3 border-b border-brand-200/40">
-        <div className="flex items-center justify-between">
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${stageAccent[stage] || "bg-brand-100 text-brand-700"}`}>
-            {stage}
+      {/* Column header */}
+      <div className="px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${STAGE_DOT_COLORS[stage] || "bg-md-primary_container"}`} />
+          <span className="label-md text-md-on_surface">{stage}</span>
+          <span className="text-xs px-2 py-0.5 bg-md-surface_container_high text-md-on_surface_variant rounded-lg font-medium">
+            {cards.length}
           </span>
-          <span className="text-xs text-ink-400 font-medium">{cards.length}</span>
         </div>
+        <button className="text-md-on_surface_variant hover:text-md-on_surface transition-colors">
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="6" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="12" cy="18" r="1.5" />
+          </svg>
+        </button>
       </div>
-      <div ref={setNodeRef} className="p-2 space-y-2 min-h-[120px]">
+
+      <div ref={setNodeRef} className="px-2 pb-3 space-y-3 min-h-[120px]">
         <SortableContext items={cards.map((c) => c.link_id)} strategy={verticalListSortingStrategy}>
           {cards.map((link) => {
             const noteCount = notes.filter((n) => n.investor_id === link.investor_id).length;
@@ -272,8 +365,11 @@ function StageColumn({
           })}
         </SortableContext>
         {cards.length === 0 && (
-          <div className="flex items-center justify-center h-20">
-            <p className="text-xs text-ink-300 italic">Drop investors here</p>
+          <div className="flex flex-col items-center justify-center h-24 border-2 border-dashed border-md-outline_variant/40 rounded-2xl">
+            <svg className="w-5 h-5 text-md-on_surface_variant/40 mb-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
+            </svg>
+            <p className="label-sm text-md-on_surface_variant/40 text-[10px]">DROP HERE TO UPDATE STAGE</p>
           </div>
         )}
       </div>
@@ -284,10 +380,10 @@ function StageColumn({
 // ── Overlay Card (while dragging) ──
 function DragOverlayCard({ link, investor }: { link: ProjectInvestor; investor?: Investor }) {
   return (
-    <div className="bg-surface-0 border-2 border-brand-500 rounded-xl p-3 shadow-lg w-64 opacity-90 rotate-[2deg] scale-105 transition-transform">
-      <p className="text-sm font-medium text-ink-800">{investor?.investor_name || link.investor_id}</p>
+    <div className="bg-md-surface_container_lowest rounded-2xl p-4 shadow-ambient-lg w-72 opacity-95 rotate-[2deg] scale-105 border-2 border-md-primary_container">
+      <p className="body-md font-semibold text-md-on_surface">{investor?.investor_name || link.investor_id}</p>
       {investor?.tags && (
-        <span className="text-[10px] text-brand-500 font-medium">
+        <span className="text-[10px] text-md-primary_container font-medium">
           {investor.tags.split(";").filter(Boolean)[0]?.trim()}
         </span>
       )}
@@ -315,17 +411,7 @@ function applyStageMove(links: ProjectInvestor[], linkId: string, newStage: stri
 export default function FunnelBoard({ projectId, links, investors, stages, team, notes, tasks, meetings, onRefresh, onOpenDrawer, readOnly, apiPrefix }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-
-  // ESC key closes fullscreen
-  useEffect(() => {
-    if (!isFullscreen) return;
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setIsFullscreen(false);
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [isFullscreen]);
+  const { addToast } = useToast();
 
   const [optimisticLinks, setOptimisticLinks] = useState<ProjectInvestor[] | null>(null);
   const displayLinks = optimisticLinks || links;
@@ -356,7 +442,6 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
   const [tagSearch, setTagSearch] = useState("");
   const tagDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close tag dropdown on outside click
   useEffect(() => {
     if (!tagDropdownOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -405,19 +490,33 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
 
   const [overStage, setOverStage] = useState<string | null>(null);
 
-  const persistStageChange = useCallback((linkId: string, newStage: string, positionIndex: number, snapshotBeforeChange: ProjectInvestor[]) => {
+  const persistStageChange = useCallback((linkId: string, newStage: string, positionIndex: number, snapshotBeforeChange: ProjectInvestor[], investorName: string) => {
     pendingSaves.current += 1;
     api(apiPrefix)
       .updateProjectInvestor({ link_id: linkId, stage: newStage, position_index: positionIndex })
-      .then(() => onRefresh())
+      .then(() => {
+        addToast({
+          type: "success",
+          title: "Investor Moved",
+          message: `${investorName} moved to '${newStage}'`,
+          undoAction: () => {
+            const original = snapshotBeforeChange.find((l) => l.link_id === linkId);
+            if (original) {
+              api(apiPrefix).updateProjectInvestor({ link_id: linkId, stage: original.stage, position_index: original.position_index }).then(() => onRefresh());
+            }
+          },
+        });
+        onRefresh();
+      })
       .catch((err) => {
         console.error("Failed to update stage:", err);
         setOptimisticLinks(snapshotBeforeChange);
+        addToast({ type: "error", title: "Failed to move investor", message: err.message });
       })
       .finally(() => {
         pendingSaves.current -= 1;
       });
-  }, [onRefresh]);
+  }, [onRefresh, addToast, apiPrefix]);
 
   const persistReorder = useCallback((linkId: string, newIndex: number, snapshotBeforeChange: ProjectInvestor[]) => {
     pendingSaves.current += 1;
@@ -431,7 +530,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
       .finally(() => {
         pendingSaves.current -= 1;
       });
-  }, [onRefresh]);
+  }, [onRefresh, apiPrefix]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -501,8 +600,9 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
 
     if (wasMovedCrossColumn) {
       const movedCard = currentLinks.find((l) => l.link_id === active.id);
+      const investorName = getInvestor(activeLink.investor_id)?.investor_name || "Investor";
       if (movedCard) {
-        persistStageChange(active.id as string, targetStage, movedCard.position_index, snapshotBeforeChange);
+        persistStageChange(active.id as string, targetStage, movedCard.position_index, snapshotBeforeChange, investorName);
       }
     } else {
       const stageCards = currentLinks
@@ -571,11 +671,14 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
     try {
       pendingSaves.current += 1;
       await api(apiPrefix).createProjectInvestor({ project_id: projectId, investor_id: investorId });
+      const inv = getInvestor(investorId);
+      addToast({ type: "success", title: "Investor Added", message: `${inv?.investor_name || "Investor"} added to pipeline` });
       await onRefresh();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to add investor";
       setAddError(message);
       setOptimisticLinks(null);
+      addToast({ type: "error", title: "Failed to add investor", message });
       throw err;
     } finally {
       pendingSaves.current -= 1;
@@ -587,7 +690,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
   const activeLink = activeId ? displayLinks.find((l) => l.link_id === activeId) : null;
   const activeInvestor = activeLink ? getInvestor(activeLink.investor_id) : null;
 
-  // Stage summary metrics (filtered view)
+  // Stage summary metrics
   const stageSummary = useMemo(() => {
     const total = filteredLinks.length;
     const active = filteredLinks.filter((l) => l.stage === "Active" || l.stage === "Trying to reach").length;
@@ -596,81 +699,43 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
     return { total, active, advanced, overdue };
   }, [filteredLinks]);
 
-  const content = (
-    <>
-      {/* Summary bar */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <p className="text-sm text-ink-500">
-            {stageSummary.total} investor{stageSummary.total !== 1 ? "s" : ""}
-          </p>
-          {stageSummary.active > 0 && (
-            <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">
-              {stageSummary.active} active
-            </span>
-          )}
-          {stageSummary.advanced > 0 && (
-            <span className="text-[10px] px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full font-medium">
-              {stageSummary.advanced} advanced
-            </span>
-          )}
-          {stageSummary.overdue > 0 && (
-            <span className="text-[10px] px-2 py-0.5 bg-red-100 text-red-700 rounded-full font-medium">
-              {stageSummary.overdue} overdue
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {!readOnly && (
-            <button
-              onClick={() => setShowPicker(true)}
-              className="px-4 py-2 text-sm bg-brand-500 text-white rounded-xl hover:bg-brand-600 transition-colors font-medium shadow-sm"
-            >
-              + Add Investor
-            </button>
-          )}
-          <button
-            onClick={() => setIsFullscreen((v) => !v)}
-            title={isFullscreen ? "Exit fullscreen" : "Expand fullscreen"}
-            className="p-2 text-ink-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"
-          >
-            {isFullscreen ? (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-              </svg>
-            )}
-          </button>
-        </div>
-      </div>
-
+  return (
+    <div>
       {/* Filter bar */}
-      <div className="mb-4 flex items-center gap-3 flex-wrap">
-        {/* Origin filter */}
-        <select
-          value={filterOrigin}
-          onChange={(e) => setFilterOrigin(e.target.value)}
-          className="text-xs border border-brand-200 rounded-lg px-2.5 py-1.5 text-ink-700 bg-surface-0 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
-        >
-          <option value="">All Origins</option>
-          <option value="br">Brasileiro</option>
-          <option value="intl">Internacional</option>
-        </select>
+      <div className="mb-5 flex items-center gap-3 flex-wrap">
+        {/* Origin segmented control */}
+        <div className="flex bg-md-surface_container_lowest rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(211, 196, 185, 0.2)" }}>
+          {[
+            { value: "", label: "All Origins" },
+            { value: "br", label: "BR" },
+            { value: "intl", label: "INTL" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setFilterOrigin(opt.value)}
+              className={`px-3.5 py-2 text-xs font-medium transition-colors ${
+                filterOrigin === opt.value
+                  ? "bg-md-surface_container_highest text-md-on_surface"
+                  : "text-md-on_surface_variant hover:bg-md-surface_container_low"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
-        {/* Wave filter */}
+        {/* Wave filter pill */}
         <select
           value={filterWave}
           onChange={(e) => setFilterWave(e.target.value)}
-          className="text-xs border border-brand-200 rounded-lg px-2.5 py-1.5 text-ink-700 bg-surface-0 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+          className="text-xs px-3.5 py-2 rounded-2xl text-md-on_surface_variant bg-md-surface_container_lowest focus:outline-none focus:ring-2 focus:ring-md-primary_container/40"
+          style={{ border: "1px solid rgba(211, 196, 185, 0.2)" }}
         >
           <option value="">All Waves</option>
-          <option value="1">1a Onda</option>
-          <option value="2">2a Onda</option>
-          <option value="3">3a Onda</option>
-          <option value="4">4a Onda</option>
+          <option value="1">Wave 1 (Seed)</option>
+          <option value="2">Wave 2</option>
+          <option value="3">Wave 3</option>
+          <option value="4">Wave 4</option>
         </select>
 
         {/* Tag multi-select dropdown */}
@@ -678,14 +743,16 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
           <div className="relative" ref={tagDropdownRef}>
             <button
               onClick={() => { setTagDropdownOpen((v) => !v); setTagSearch(""); }}
-              className={`text-xs border rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-1 focus:ring-brand-500/40 ${
+              className={`text-xs px-3.5 py-2 rounded-2xl flex items-center gap-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-md-primary_container/40 ${
                 filterTags.length > 0
-                  ? "border-brand-500 bg-brand-50 text-brand-700"
-                  : "border-brand-200 bg-surface-0 text-ink-700"
+                  ? "bg-md-primary_container/10 text-md-primary"
+                  : "bg-md-surface_container_lowest text-md-on_surface_variant"
               }`}
+              style={{ border: "1px solid rgba(211, 196, 185, 0.2)" }}
             >
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 6h.008v.008H6V6z" />
               </svg>
               Tags{filterTags.length > 0 ? ` (${filterTags.length})` : ""}
               <svg className={`w-3 h-3 transition-transform ${tagDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -693,14 +760,14 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
               </svg>
             </button>
             {tagDropdownOpen && (
-              <div className="absolute z-50 mt-1 w-56 bg-surface-0 border border-brand-200 rounded-xl shadow-lg overflow-hidden">
-                <div className="p-2 border-b border-brand-100">
+              <div className="absolute z-50 mt-1 w-56 bg-md-surface_container_lowest rounded-2xl shadow-ambient-lg overflow-hidden" style={{ border: "1px solid rgba(211, 196, 185, 0.2)" }}>
+                <div className="p-2">
                   <input
                     type="text"
                     value={tagSearch}
                     onChange={(e) => setTagSearch(e.target.value)}
                     placeholder="Search tags..."
-                    className="w-full text-xs px-2 py-1.5 border border-brand-200 rounded-lg bg-surface-50 text-ink-700 placeholder-ink-300 focus:outline-none focus:ring-1 focus:ring-brand-500/40"
+                    className="w-full text-xs px-3 py-2 rounded-xl bg-md-surface_container_highest text-md-on_surface placeholder-md-on_surface_variant/50 focus:outline-none focus:ring-1 focus:ring-md-primary_container/40"
                     autoFocus
                   />
                 </div>
@@ -712,7 +779,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
                       return (
                         <label
                           key={tag}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-brand-50 cursor-pointer transition-colors"
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-md-surface_container_low cursor-pointer transition-colors"
                         >
                           <input
                             type="checkbox"
@@ -722,14 +789,14 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
                                 isActive ? prev.filter((t) => t !== tag) : [...prev, tag]
                               );
                             }}
-                            className="w-3.5 h-3.5 rounded border-brand-300 text-brand-500 focus:ring-brand-500/40"
+                            className="w-3.5 h-3.5 rounded accent-md-primary"
                           />
-                          <span className="text-xs text-ink-700 truncate">{tag}</span>
+                          <span className="text-xs text-md-on_surface truncate">{tag}</span>
                         </label>
                       );
                     })}
                   {availableTags.filter((tag) => tag.toLowerCase().includes(tagSearch.toLowerCase())).length === 0 && (
-                    <p className="text-xs text-ink-400 px-2 py-3 text-center italic">No tags found</p>
+                    <p className="text-xs text-md-on_surface_variant px-3 py-3 text-center italic">No tags found</p>
                   )}
                 </div>
               </div>
@@ -737,26 +804,52 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
           </div>
         )}
 
-        {/* Clear filters + count */}
+        {/* Clear filters */}
         {filtersActive && (
-          <>
-            <button
-              onClick={() => { setFilterTags([]); setFilterOrigin(""); setFilterWave(""); }}
-              className="text-[10px] px-2 py-0.5 text-ink-500 hover:text-ink-700 border border-brand-200 rounded-lg transition-colors"
-            >
-              Clear filters
-            </button>
-            <span className="text-[10px] text-ink-400">
-              Showing {filteredLinks.length} of {displayLinks.length} investors
-            </span>
-          </>
+          <button
+            onClick={() => { setFilterTags([]); setFilterOrigin(""); setFilterWave(""); }}
+            className="text-xs px-3 py-1.5 text-md-on_surface_variant hover:text-md-on_surface rounded-xl transition-colors"
+            style={{ border: "1px solid rgba(211, 196, 185, 0.2)" }}
+          >
+            Clear filters
+          </button>
+        )}
+
+        <div className="flex-1" />
+
+        {/* Summary count */}
+        <span className="text-xs text-md-on_surface_variant">
+          {stageSummary.total} investor{stageSummary.total !== 1 ? "s" : ""}
+          {stageSummary.overdue > 0 && (
+            <span className="text-md-error ml-2">{stageSummary.overdue} overdue</span>
+          )}
+        </span>
+
+        {/* Fullscreen button (placeholder) */}
+        <button className="flex items-center gap-1.5 px-3.5 py-2 text-xs rounded-2xl text-md-on_surface_variant hover:bg-md-surface_container_high transition-colors" style={{ border: "1px solid rgba(211, 196, 185, 0.2)" }}>
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+          </svg>
+          Fullscreen
+        </button>
+
+        {!readOnly && (
+          <button
+            onClick={() => setShowPicker(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-sm rounded-2xl font-medium text-md-on_primary bg-gradient-to-r from-md-primary to-md-primary_container hover:opacity-90 transition-opacity shadow-ambient"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+            </svg>
+            + Add Investor
+          </button>
         )}
       </div>
 
       {addError && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between">
-          <p className="text-sm text-red-700">{addError}</p>
-          <button onClick={() => setAddError(null)} className="text-red-400 hover:text-red-600 text-xs font-medium ml-4">Dismiss</button>
+        <div className="mb-4 bg-md-error_container rounded-2xl px-4 py-3 flex items-center justify-between">
+          <p className="text-sm text-md-error">{addError}</p>
+          <button onClick={() => setAddError(null)} className="text-md-error/60 hover:text-md-error text-xs font-medium ml-4">Dismiss</button>
         </div>
       )}
 
@@ -796,12 +889,12 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
       </DndContext>
 
       {displayLinks.length === 0 && (
-        <div className="mt-4 text-center py-12 bg-surface-50 rounded-2xl border border-dashed border-brand-300">
-          <p className="text-ink-400 text-sm mb-2">No investors yet</p>
+        <div className="mt-4 text-center py-12 bg-md-surface_container_low rounded-2xl border-2 border-dashed border-md-outline_variant/40">
+          <p className="text-md-on_surface_variant text-sm mb-2">No investors yet</p>
           {!readOnly && (
             <button
               onClick={() => setShowPicker(true)}
-              className="text-sm text-brand-500 hover:text-brand-700 font-medium transition-colors"
+              className="text-sm text-md-primary hover:text-md-primary_container font-medium transition-colors"
             >
               Add from directory
             </button>

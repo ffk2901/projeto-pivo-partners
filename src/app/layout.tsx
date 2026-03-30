@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import LayoutShell from "@/components/LayoutShell";
+import { ToastProvider } from "@/components/ToastProvider";
 
 export const metadata: Metadata = {
   title: "Pivo Partners",
@@ -14,8 +15,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-surface-100 text-ink-800 min-h-screen flex">
-        <LayoutShell>{children}</LayoutShell>
+      <body className="bg-md-surface text-md-on_surface min-h-screen flex">
+        <ToastProvider>
+          <LayoutShell>{children}</LayoutShell>
+        </ToastProvider>
       </body>
     </html>
   );
