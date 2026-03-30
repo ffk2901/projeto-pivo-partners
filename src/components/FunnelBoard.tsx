@@ -42,15 +42,6 @@ interface Props {
   apiPrefix?: string;
 }
 
-// Investor type labels
-const INVESTOR_TYPE_MAP: Record<string, string> = {
-  vc: "Venture Capital",
-  pe: "Private Equity",
-  fo: "Family Office",
-  angel: "Angel Investor",
-  fund: "Fund",
-};
-
 function getInvestorType(tags: string): string {
   const t = tags.toLowerCase();
   if (t.includes("venture") || t.includes("vc")) return "Venture Capital";
@@ -151,8 +142,6 @@ function InvestorCard({
   };
 
   const followUpDisplay = getFollowUpDisplay();
-
-  const completedTasks = taskCount > 0 ? Math.floor(taskCount * 0.4) : 0; // estimate
 
   return (
     <div
@@ -498,7 +487,7 @@ export default function FunnelBoard({ projectId, links, investors, stages, team,
         addToast({
           type: "success",
           title: "Investor Moved",
-          message: `${investorName} moved to '${newStage}'`,
+          message: investorName + " moved to " + newStage,
           undoAction: () => {
             const original = snapshotBeforeChange.find((l) => l.link_id === linkId);
             if (original) {
