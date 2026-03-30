@@ -119,6 +119,9 @@ export default function Investor360Drawer({
         source: link.source || "", last_interaction_date: link.last_interaction_date || "",
         last_interaction_type: link.last_interaction_type || "", notes: link.notes || "",
         origin: investor.origin || "", wave: link.wave || "",
+        investor_type: investor.investor_type || "",
+        company_affiliation: investor.company_affiliation || "",
+        description: investor.description || "",
       });
     }
   }, [link, investor.origin, investor.investor_type, investor.company_affiliation, investor.description]);
