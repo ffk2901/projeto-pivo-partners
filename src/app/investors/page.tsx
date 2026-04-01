@@ -11,18 +11,13 @@ const ITEMS_PER_PAGE = 12;
 
 const TYPE_FILTERS = [
   { key: "all", label: "ALL ENTITIES" },
-  { key: "family office", label: "FAMILY OFFICE" },
-  { key: "venture", label: "VENTURE CAPITAL" },
-  { key: "private equity", label: "PRIVATE EQUITY" },
+  { key: "fund", label: "FUND" },
   { key: "individual", label: "INDIVIDUAL" },
 ];
 
-function getInvestorTypeFromTags(tags: string): string {
-  const t = tags.toLowerCase();
-  if (t.includes("family office") || t.includes("fo")) return "FAMILY OFFICE";
-  if (t.includes("venture") || t.includes("vc")) return "VENTURE CAPITAL";
-  if (t.includes("private equity") || t.includes("pe")) return "PRIVATE EQUITY";
-  if (t.includes("individual") || t.includes("angel") || t.includes("pf")) return "INDIVIDUAL";
+function getInvestorTypeLabel(inv: Investor): string {
+  if (inv.investor_type === "fund") return "FUND";
+  if (inv.investor_type === "individual") return "INDIVIDUAL";
   return "";
 }
 
@@ -205,15 +200,16 @@ export default function InvestorsPage() {
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((i) =>
-        i.investor_name.toLowerCase().includes(q) || i.tags.toLowerCase().includes(q)
+        i.investor_name.toLowerCase().includes(q) ||
+        i.tags.toLowerCase().includes(q) ||
+        (i.email || "").toLowerCase().includes(q) ||
+        (i.company_affiliation || "").toLowerCase().includes(q) ||
+        (i.description || "").toLowerCase().includes(q)
       );
     }
     // Type filter
     if (typeFilter !== "all") {
-      result = result.filter((i) => {
-        const type = getInvestorTypeFromTags(i.tags);
-        return type.toLowerCase().includes(typeFilter.toLowerCase());
-      });
+      result = result.filter((i) => i.investor_type === typeFilter);
     }
     return result;
   }, [investors, search, typeFilter]);
@@ -269,6 +265,15 @@ export default function InvestorsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowAdd(true)}
+            className="flex items-center gap-2 px-5 py-2.5 text-sm rounded-2xl font-medium text-md-on_primary bg-gradient-to-r from-md-primary to-md-primary_container hover:opacity-90 transition-opacity shadow-ambient"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            + Add Investor
+          </button>
           <button className="flex items-center gap-2 px-4 py-2.5 text-sm rounded-2xl text-md-on_surface_variant hover:bg-md-surface_container_high transition-colors" style={{ border: "1px solid rgba(129, 117, 108, 0.3)" }}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
@@ -351,9 +356,9 @@ export default function InvestorsPage() {
 
             {/* Type */}
             <div className="flex items-center">
-              {getInvestorTypeFromTags(inv.tags) ? (
+              {getInvestorTypeLabel(inv) ? (
                 <span className="label-sm text-[10px] px-2 py-0.5 bg-md-surface_container_high text-md-on_surface_variant rounded-lg">
-                  {getInvestorTypeFromTags(inv.tags)}
+                  {getInvestorTypeLabel(inv)}
                 </span>
               ) : null}
             </div>
