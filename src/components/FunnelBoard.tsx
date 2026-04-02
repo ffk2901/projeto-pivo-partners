@@ -42,22 +42,17 @@ interface Props {
   apiPrefix?: string;
 }
 
-function getInvestorType(tags: string): string {
-  const t = tags.toLowerCase();
-  if (t.includes("venture") || t.includes("vc")) return "Venture Capital";
-  if (t.includes("private equity") || t.includes("pe")) return "Private Equity";
-  if (t.includes("family office") || t.includes("fo")) return "Family Office";
-  if (t.includes("angel")) return "Angel Investor";
-  if (t.includes("fund")) return "Fund";
+function getInvestorTypeLabel(investor?: Investor): string {
+  if (!investor) return "";
+  if (investor.investor_type === "fund") return "Fund";
+  if (investor.investor_type === "individual") return "Individual";
   return "";
 }
 
-function getTypeShortBadge(tags: string): string {
-  const t = tags.toLowerCase();
-  if (t.includes("fund") || t.includes("venture") || t.includes("vc")) return "FUND";
-  if (t.includes("private equity") || t.includes("pe")) return "PE";
-  if (t.includes("family office") || t.includes("fo")) return "FO";
-  if (t.includes("angel")) return "PF";
+function getTypeShortBadge(investor?: Investor): string {
+  if (!investor) return "";
+  if (investor.investor_type === "fund") return "FUND";
+  if (investor.investor_type === "individual") return "PF";
   return "";
 }
 
@@ -114,8 +109,8 @@ function InvestorCard({
   const isStalled = getStalledStatus(link);
   const statusConfig = FOLLOW_UP_STATUS_CONFIG[followUpStatus];
   const owner = team.find((m) => m.team_id === link.owner_id);
-  const investorType = investor?.tags ? getInvestorType(investor.tags) : "";
-  const typeBadge = investor?.tags ? getTypeShortBadge(investor.tags) : "";
+  const investorType = getInvestorTypeLabel(investor);
+  const typeBadge = getTypeShortBadge(investor);
 
   const tags = investor?.tags?.split(";").filter(Boolean).map((t) => t.trim()) || [];
   const visibleTags = tags.slice(0, 2);
