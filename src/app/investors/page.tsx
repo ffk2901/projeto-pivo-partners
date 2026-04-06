@@ -519,6 +519,13 @@ export default function InvestorsPage() {
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="Add Investor">
         <div className="space-y-4">
           <div>
+            <label className="block label-md text-md-on_surface_variant mb-2">Type *</label>
+            <select value={newType} onChange={(e) => setNewType(e.target.value as Investor["investor_type"])} className={inputClass}>
+              <option value="fund">Fund</option>
+              <option value="individual">Individual</option>
+            </select>
+          </div>
+          <div>
             <label className="block label-md text-md-on_surface_variant mb-2">Name *</label>
             <input type="text" value={newName} onChange={(e) => setNewName(e.target.value)}
               className={inputClass}
@@ -526,14 +533,14 @@ export default function InvestorsPage() {
           </div>
           {newType === "individual" && (
             <div>
-              <label className="block text-sm font-medium text-ink-700 mb-1">Company Affiliation</label>
+              <label className="block label-md text-md-on_surface_variant mb-2">Company Affiliation</label>
               <input type="text" value={newCompany} onChange={(e) => setNewCompany(e.target.value)}
                 className={inputClass}
                 placeholder="e.g. Empresa X" />
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-ink-700 mb-1">Description</label>
+            <label className="block label-md text-md-on_surface_variant mb-2">Description</label>
             <input type="text" value={newDescription} onChange={(e) => setNewDescription(e.target.value)}
               className={inputClass}
               placeholder="Brief description" />
@@ -564,12 +571,19 @@ export default function InvestorsPage() {
             {detailEditMode ? (
               <div className="space-y-4">
                 <div>
+                  <label className="block label-md text-md-on_surface_variant mb-2">Type *</label>
+                  <select value={editType} onChange={(e) => setEditType(e.target.value as Investor["investor_type"])} className={inputClass}>
+                    <option value="fund">Fund</option>
+                    <option value="individual">Individual</option>
+                  </select>
+                </div>
+                <div>
                   <label className="block label-md text-md-on_surface_variant mb-2">Name *</label>
                   <input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} className={inputClass} />
                 </div>
                 {editType === "individual" && (
                   <div>
-                    <label className="block text-xs text-ink-400 uppercase tracking-wide mb-1">Company Affiliation</label>
+                    <label className="block label-md text-md-on_surface_variant mb-2">Company Affiliation</label>
                     <input type="text" value={editCompany} onChange={(e) => setEditCompany(e.target.value)} className={inputClass} placeholder="e.g. Empresa X" />
                   </div>
                 )}
