@@ -225,11 +225,18 @@ export default function InvestorsPage() {
     setCurrentPage(1);
   }, [search, typeFilter]);
 
-  // Stats
-  const uniqueOrigins = useMemo(() => {
-    const origins = new Set(investors.map((i) => i.origin).filter(Boolean));
-    return origins.size;
+  // Stats - dynamic metrics
+  const totalInvestors = investors.length;
+
+  const originBreakdown = useMemo(() => {
+    const br = investors.filter((i) => i.origin === "br").length;
+    const intl = investors.filter((i) => i.origin === "intl").length;
+    return { br, intl };
   }, [investors]);
+
+  const activePipelineCount = useMemo(() => {
+    return piLinks.filter((l) => l.stage && !["Declined", "On Hold"].includes(l.stage)).length;
+  }, [piLinks]);
 
   const stageColor: Record<string, string> = {
     "Pipeline": "bg-md-surface_container_high text-md-on_surface_variant",
@@ -483,27 +490,27 @@ export default function InvestorsPage() {
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-4 mt-8">
         <div className="bg-md-surface_container_lowest rounded-2xl p-6">
-          <p className="label-sm text-md-on_surface_variant mb-2">PORTFOLIO GROWTH</p>
+          <p className="label-sm text-md-on_surface_variant mb-2">TOTAL INVESTORS</p>
           <div className="flex items-baseline gap-2">
-            <span className="display-sm text-md-on_surface">+24.8%</span>
+            <span className="display-sm text-md-on_surface">{totalInvestors}</span>
             <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941" />
             </svg>
           </div>
-          <p className="body-sm text-md-on_surface_variant mt-1">vs last quarter</p>
+          <p className="body-sm text-md-on_surface_variant mt-1">Funds & individuals mapped</p>
         </div>
 
         <div className="bg-md-surface_container_lowest rounded-2xl p-6">
           <p className="label-sm text-md-on_surface_variant mb-2">GLOBAL REACH</p>
           <div className="flex items-baseline gap-2">
-            <span className="display-sm text-md-on_surface">{uniqueOrigins > 0 ? "42" : "0"} Countries</span>
+            <span className="display-sm text-md-on_surface">{originBreakdown.br + originBreakdown.intl} Mapped</span>
           </div>
-          <p className="body-sm text-md-on_surface_variant mt-1">Strongest presence in LATAM and DACH</p>
+          <p className="body-sm text-md-on_surface_variant mt-1">{originBreakdown.br} Brasil · {originBreakdown.intl} Internacional</p>
         </div>
 
         <div className="bg-md-on_surface rounded-2xl p-6 text-md-surface_container_lowest">
           <p className="label-sm text-md-surface_container_highest/70 mb-2">ACTIVE DEALS</p>
-          <span className="display-sm">{piLinks.length} Pipeline</span>
+          <span className="display-sm">{activePipelineCount} Pipeline</span>
           <div className="mt-3">
             <Link
               href="/projects"
