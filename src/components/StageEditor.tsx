@@ -99,9 +99,9 @@ export default function StageEditor({ open, onClose, stages, investorCountByStag
   };
 
   const hasChanges = (() => {
-    const currentNames = rows.map((r) => r.name.trim()).filter(Boolean);
-    if (currentNames.length !== stages.length) return true;
-    return currentNames.some((n, i) => n !== stages[i]);
+    // Compare current rows (including empty ones that user hasn't filled yet) vs original
+    if (rows.length !== stages.length) return true;
+    return rows.some((r, i) => r.name.trim() !== stages[i]);
   })();
 
   // Stages being removed that have investors

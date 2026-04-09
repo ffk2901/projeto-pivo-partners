@@ -132,24 +132,19 @@ export default function ProjectDetailPage() {
   }, [piLinks]);
 
   const handleSaveStages = useCallback(async (newStages: string[]) => {
-    // Move investors from deleted stages to the first new stage
-    const deletedStages = stages.filter((s) => !newStages.includes(s));
     const firstStage = newStages[0];
-    for (const oldStage of deletedStages) {
-      const affected = piLinks.filter((l) => l.stage === oldStage);
-      for (const link of affected) {
-        await api().updateProjectInvestor({ link_id: link.link_id, stage: firstStage });
-      }
+
+    // Find all investors whose stage is NOT in the new list (deleted or renamed stages)
+    const orphanedLinks = piLinks.filter((l) => !newStages.includes(l.stage));
+    for (const link of orphanedLinks) {
+      await api().updateProjectInvestor({ link_id: link.link_id, stage: firstStage });
     }
-    // Rename: if a stage was renamed, investors keep the old stage name.
-    // We handle this by checking for investors with stages not in the new list.
-    // (Already covered above since renamed stages = old name deleted + new name added)
 
     // Save the new stages config
     await api().updatePipelineStages(newStages);
     setStages(newStages);
     await loadData();
-  }, [stages, piLinks, loadData]);
+  }, [piLinks, loadData]);
 
   if (loading) {
     return (

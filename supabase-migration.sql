@@ -120,6 +120,11 @@ CREATE TABLE IF NOT EXISTS config (
   value TEXT DEFAULT ''
 );
 
+-- Seed default pipeline stages if not present
+INSERT INTO config (key, value)
+VALUES ('pipeline_stages', 'Pipeline|Trying to reach|Active|Advanced|On Hold|Declined')
+ON CONFLICT (key) DO NOTHING;
+
 -- PROJECT_NOTES
 CREATE TABLE IF NOT EXISTS project_notes (
   note_id TEXT PRIMARY KEY,
