@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import { getConfig, getPipelineStages } from "@/lib/db";
+import { NextRequest, NextResponse } from "next/server";
+import { getConfig, getPipelineStages, setPipelineStages } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,44 @@ export async function GET() {
       getPipelineStages(),
     ]);
     return NextResponse.json({ config, pipeline_stages: stages });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { pipeline_stages } = body;
+
+    if (!Array.isArray(pipeline_stages) || pipeline_stages.length === 0) {
+      return NextResponse.json(
+        { error: "pipeline_stages must be a non-empty array" },
+        { status: 400 }
+      );
+    }
+
+    const cleaned = pipeline_stages.map((s: unknown) => String(s).trim()).filter(Boolean);
+    if (cleaned.length === 0) {
+      return NextResponse.json(
+        { error: "At least one stage name is required" },
+        { status: 400 }
+      );
+    }
+
+    const unique = Array.from(new Set(cleaned));
+    if (unique.length !== cleaned.length) {
+      return NextResponse.json(
+        { error: "Duplicate stage names are not allowed" },
+        { status: 400 }
+      );
+    }
+
+    await setPipelineStages(unique);
+    return NextResponse.json({ pipeline_stages: unique });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },

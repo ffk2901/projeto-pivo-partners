@@ -150,6 +150,15 @@ export async function getPipelineStages(): Promise<string[]> {
   return row.value.split("|").map((s) => s.trim());
 }
 
+export async function setPipelineStages(stages: string[]): Promise<void> {
+  const value = stages.join("|");
+  const { error } = await getSupabase()
+    .from("config")
+    .upsert({ key: "pipeline_stages", value }, { onConflict: "key" });
+  if (error) throw new Error(error.message);
+  invalidateCache("config");
+}
+
 export async function getProjectNotes(): Promise<ProjectNote[]> {
   const k = "project_notes"; const c = getCached<ProjectNote[]>(k); if (c) return c;
   const { data, error } = await getSupabase().from("project_notes").select("*");

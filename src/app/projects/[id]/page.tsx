@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api } from "@/lib/api";
@@ -21,6 +21,7 @@ import NotesTable from "@/components/NotesTable";
 import MeetingReportTab from "@/components/MeetingReportTab";
 import MeetingNotesTab from "@/components/MeetingNotesTab";
 import Investor360Drawer from "@/components/Investor360Drawer";
+import StageEditor from "@/components/StageEditor";
 
 type Tab = "pipeline" | "tasks" | "notes" | "meeting-notes" | "materials" | "report";
 
@@ -46,6 +47,9 @@ export default function ProjectDetailPage() {
   // Investor 360 Drawer state
   const [drawerLink, setDrawerLink] = useState<ProjectInvestor | null>(null);
   const [drawerInvestor, setDrawerInvestor] = useState<Investor | null>(null);
+
+  // Stage Editor state
+  const [showStageEditor, setShowStageEditor] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -117,6 +121,35 @@ export default function ProjectDetailPage() {
     setDrawerLink(null);
     setDrawerInvestor(null);
   }, []);
+
+  // Compute investor count per stage for this project
+  const investorCountByStage = useMemo(() => {
+    const counts: Record<string, number> = {};
+    piLinks.forEach((l) => {
+      counts[l.stage] = (counts[l.stage] || 0) + 1;
+    });
+    return counts;
+  }, [piLinks]);
+
+  const handleSaveStages = useCallback(async (newStages: string[]) => {
+    // Move investors from deleted stages to the first new stage
+    const deletedStages = stages.filter((s) => !newStages.includes(s));
+    const firstStage = newStages[0];
+    for (const oldStage of deletedStages) {
+      const affected = piLinks.filter((l) => l.stage === oldStage);
+      for (const link of affected) {
+        await api().updateProjectInvestor({ link_id: link.link_id, stage: firstStage });
+      }
+    }
+    // Rename: if a stage was renamed, investors keep the old stage name.
+    // We handle this by checking for investors with stages not in the new list.
+    // (Already covered above since renamed stages = old name deleted + new name added)
+
+    // Save the new stages config
+    await api().updatePipelineStages(newStages);
+    setStages(newStages);
+    await loadData();
+  }, [stages, piLinks, loadData]);
 
   if (loading) {
     return (
@@ -211,18 +244,39 @@ export default function ProjectDetailPage() {
       </div>
 
       {tab === "pipeline" && (
-        <FunnelBoard
-          projectId={projectId}
-          links={piLinks}
-          investors={investors}
-          stages={stages}
-          team={team}
-          notes={notes}
-          tasks={tasks}
-          meetings={meetings}
-          onRefresh={loadData}
-          onOpenDrawer={handleOpenDrawer}
-        />
+        <>
+          <div className="flex justify-end mb-3">
+            <button
+              onClick={() => setShowStageEditor(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs rounded-2xl text-md-on_surface_variant hover:bg-md-surface_container_high transition-colors"
+              style={{ border: "1px solid rgba(211, 196, 185, 0.2)" }}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+              </svg>
+              Edit Funnel
+            </button>
+          </div>
+          <FunnelBoard
+            projectId={projectId}
+            links={piLinks}
+            investors={investors}
+            stages={stages}
+            team={team}
+            notes={notes}
+            tasks={tasks}
+            meetings={meetings}
+            onRefresh={loadData}
+            onOpenDrawer={handleOpenDrawer}
+          />
+          <StageEditor
+            open={showStageEditor}
+            onClose={() => setShowStageEditor(false)}
+            stages={stages}
+            investorCountByStage={investorCountByStage}
+            onSave={handleSaveStages}
+          />
+        </>
       )}
       {tab === "tasks" && (
         <div>
