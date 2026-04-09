@@ -152,10 +152,25 @@ export async function getPipelineStages(): Promise<string[]> {
 
 export async function setPipelineStages(stages: string[]): Promise<void> {
   const value = stages.join("|");
-  const { error } = await getSupabase()
+  const sb = getSupabase();
+
+  // Try update first
+  const { data: updated, error: updateError } = await sb
     .from("config")
-    .upsert({ key: "pipeline_stages", value }, { onConflict: "key" });
-  if (error) throw new Error(error.message);
+    .update({ value })
+    .eq("key", "pipeline_stages")
+    .select();
+
+  if (updateError) throw new Error(updateError.message);
+
+  // If row didn't exist (no rows updated), insert it
+  if (!updated || updated.length === 0) {
+    const { error: insertError } = await sb
+      .from("config")
+      .insert({ key: "pipeline_stages", value });
+    if (insertError) throw new Error(insertError.message);
+  }
+
   invalidateCache("config");
 }
 
