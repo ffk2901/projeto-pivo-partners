@@ -319,7 +319,7 @@ function StageColumn({
         </button>
       </div>
 
-      <div ref={setNodeRef} className="px-2 pb-3 space-y-3 min-h-[120px]">
+      <div ref={setNodeRef} className="px-2 pb-3 space-y-3 min-h-[120px] max-h-[calc(100vh-280px)] overflow-y-auto funnel-col-scroll">
         <SortableContext items={cards.map((c) => c.link_id)} strategy={verticalListSortingStrategy}>
           {cards.map((link) => {
             const noteCount = notes.filter((n) => n.investor_id === link.investor_id).length;
