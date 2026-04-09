@@ -76,6 +76,7 @@ export function api(prefix = "/api") {
 
     // Config
     getConfig: () => fetchJson<{ config: import("@/types").ConfigRow[]; pipeline_stages: string[] }>(`${prefix}/config`),
+    updatePipelineStages: (stages: string[]) => put<{ pipeline_stages: string[] }>(`${prefix}/config`, { pipeline_stages: stages }),
 
     // Team update
     updateTeamMember: (d: Partial<import("@/types").TeamMember>) => put<import("@/types").TeamMember>(`${prefix}/team`, d),
