@@ -21,7 +21,7 @@ import NotesTable from "@/components/NotesTable";
 import MeetingReportTab from "@/components/MeetingReportTab";
 import MeetingNotesTab from "@/components/MeetingNotesTab";
 import Investor360Drawer from "@/components/Investor360Drawer";
-import StageEditor from "@/components/StageEditor";
+import StageEditor, { type StageChange } from "@/components/StageEditor";
 
 type Tab = "pipeline" | "tasks" | "notes" | "meeting-notes" | "materials" | "report";
 
@@ -131,16 +131,27 @@ export default function ProjectDetailPage() {
     return counts;
   }, [piLinks]);
 
-  const handleSaveStages = useCallback(async (newStages: string[]) => {
+  const handleSaveStages = useCallback(async (change: StageChange) => {
+    const { stages: newStages, renames, deleted } = change;
     const firstStage = newStages[0];
 
-    // Find all investors whose stage is NOT in the new list (deleted or renamed stages)
-    const orphanedLinks = piLinks.filter((l) => !newStages.includes(l.stage));
-    for (const link of orphanedLinks) {
-      await api().updateProjectInvestor({ link_id: link.link_id, stage: firstStage });
+    // 1. Handle renames: update investors from old stage name to new stage name
+    for (const [oldName, newName] of Object.entries(renames)) {
+      const affected = piLinks.filter((l) => l.stage === oldName);
+      for (const link of affected) {
+        await api().updateProjectInvestor({ link_id: link.link_id, stage: newName });
+      }
     }
 
-    // Save the new stages config
+    // 2. Handle deleted stages: move investors to first stage
+    for (const oldStage of deleted) {
+      const affected = piLinks.filter((l) => l.stage === oldStage);
+      for (const link of affected) {
+        await api().updateProjectInvestor({ link_id: link.link_id, stage: firstStage });
+      }
+    }
+
+    // 3. Save the new stages config
     await api().updatePipelineStages(newStages);
     setStages(newStages);
     await loadData();

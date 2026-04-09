@@ -6,16 +6,22 @@ import Modal from "./Modal";
 interface StageRow {
   id: string;
   name: string;
+  originalName: string; // "" for new stages, original name for existing ones
   investorCount: number;
+}
+
+export interface StageChange {
+  stages: string[];
+  renames: Record<string, string>; // oldName → newName
+  deleted: string[]; // stages that were fully removed
 }
 
 interface Props {
   open: boolean;
   onClose: () => void;
   stages: string[];
-  /** Map of stage name → number of investors in that stage (for the current project) */
   investorCountByStage: Record<string, number>;
-  onSave: (stages: string[]) => Promise<void>;
+  onSave: (change: StageChange) => Promise<void>;
 }
 
 export default function StageEditor({ open, onClose, stages, investorCountByStage, onSave }: Props) {
@@ -23,6 +29,7 @@ export default function StageEditor({ open, onClose, stages, investorCountByStag
     stages.map((name, i) => ({
       id: `stage_${i}_${Date.now()}`,
       name,
+      originalName: name,
       investorCount: investorCountByStage[name] || 0,
     }))
   );
@@ -37,9 +44,11 @@ export default function StageEditor({ open, onClose, stages, investorCountByStag
       stages.map((name, i) => ({
         id: `stage_${i}_${Date.now()}`,
         name,
+        originalName: name,
         investorCount: investorCountByStage[name] || 0,
       }))
     );
+    setError(null);
   }
 
   const updateName = (id: string, name: string) => {
@@ -71,25 +80,42 @@ export default function StageEditor({ open, onClose, stages, investorCountByStag
   const addRow = () => {
     setRows((prev) => [
       ...prev,
-      { id: `stage_new_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`, name: "", investorCount: 0 },
+      { id: `stage_new_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`, name: "", originalName: "", investorCount: 0 },
     ]);
   };
 
   const handleSave = async () => {
     setError(null);
-    const names = rows.map((r) => r.name.trim()).filter(Boolean);
+    const validRows = rows.filter((r) => r.name.trim());
+    const names = validRows.map((r) => r.name.trim());
     if (names.length === 0) {
       setError("At least one stage is required.");
       return;
     }
-    const unique = new Set(names);
-    if (unique.size !== names.length) {
+    const uniqueCheck = new Set(names);
+    if (uniqueCheck.size !== names.length) {
       setError("Duplicate stage names are not allowed.");
       return;
     }
+
+    // Compute renames: rows that had an originalName and now have a different name
+    const renames: Record<string, string> = {};
+    for (const row of validRows) {
+      if (row.originalName && row.name.trim() !== row.originalName) {
+        renames[row.originalName] = row.name.trim();
+      }
+    }
+
+    // Compute deleted: original stages that no longer exist (not in new names AND not renamed)
+    const renamedOriginals = new Set(Object.keys(renames));
+    const newNamesSet = new Set(names);
+    const deleted = stages.filter(
+      (s) => !newNamesSet.has(s) && !renamedOriginals.has(s)
+    );
+
     setSaving(true);
     try {
-      await onSave(names);
+      await onSave({ stages: names, renames, deleted });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save stages");
@@ -99,17 +125,23 @@ export default function StageEditor({ open, onClose, stages, investorCountByStag
   };
 
   const hasChanges = (() => {
-    // Compare current rows (including empty ones that user hasn't filled yet) vs original
     if (rows.length !== stages.length) return true;
     return rows.some((r, i) => r.name.trim() !== stages[i]);
   })();
 
-  // Stages being removed that have investors
-  const removedWithInvestors = stages
-    .filter((s) => !rows.some((r) => r.name.trim() === s))
-    .filter((s) => (investorCountByStage[s] || 0) > 0);
+  // Only warn for truly DELETED stages (not renames) that have investors
+  const deletedWithInvestors = (() => {
+    const validRows = rows.filter((r) => r.name.trim());
+    const newNames = new Set(validRows.map((r) => r.name.trim()));
+    const renamedOriginals = new Set(
+      validRows.filter((r) => r.originalName && r.name.trim() !== r.originalName).map((r) => r.originalName)
+    );
+    return stages
+      .filter((s) => !newNames.has(s) && !renamedOriginals.has(s))
+      .filter((s) => (investorCountByStage[s] || 0) > 0);
+  })();
 
-  const firstStageName = rows[0]?.name.trim() || "first stage";
+  const firstStageName = rows.find((r) => r.name.trim())?.name.trim() || "first stage";
 
   return (
     <Modal open={open} onClose={onClose} title="Edit Funnel Stages">
@@ -171,6 +203,20 @@ export default function StageEditor({ open, onClose, stages, investorCountByStag
                 </span>
               )}
 
+              {/* Rename indicator */}
+              {row.originalName && row.name.trim() && row.name.trim() !== row.originalName && (
+                <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-lg flex-shrink-0">
+                  renamed
+                </span>
+              )}
+
+              {/* New indicator */}
+              {!row.originalName && row.name.trim() && (
+                <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-lg flex-shrink-0">
+                  new
+                </span>
+              )}
+
               {/* Delete button */}
               <button
                 onClick={() => removeRow(row.id)}
@@ -198,12 +244,12 @@ export default function StageEditor({ open, onClose, stages, investorCountByStag
           Add Stage
         </button>
 
-        {/* Warning for removed stages with investors */}
-        {removedWithInvestors.length > 0 && (
+        {/* Warning ONLY for truly deleted stages (not renames) that have investors */}
+        {deletedWithInvestors.length > 0 && (
           <div className="bg-amber-50 rounded-2xl px-4 py-3">
             <p className="text-sm text-amber-800 font-medium mb-1">Investors will be moved</p>
             <p className="text-xs text-amber-700">
-              {removedWithInvestors.map((s) => (
+              {deletedWithInvestors.map((s) => (
                 <span key={s}>
                   Stage &quot;{s}&quot; has {investorCountByStage[s]} investor(s).{" "}
                 </span>

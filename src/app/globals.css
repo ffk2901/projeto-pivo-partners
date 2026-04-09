@@ -70,19 +70,43 @@
   opacity: 0.5;
 }
 
-/* Smooth scrollbar for funnel board */
+/* Smooth scrollbar for funnel board (horizontal) */
+.funnel-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #C9B9A3 transparent;
+}
 .funnel-scroll::-webkit-scrollbar {
-  height: 8px;
+  height: 10px;
 }
 .funnel-scroll::-webkit-scrollbar-track {
-  background: transparent;
+  background: #f1ede9;
+  border-radius: 5px;
 }
 .funnel-scroll::-webkit-scrollbar-thumb {
   background: #C9B9A3;
-  border-radius: 4px;
+  border-radius: 5px;
 }
 .funnel-scroll::-webkit-scrollbar-thumb:hover {
   background: #AF8A6D;
+}
+
+/* Smooth scrollbar for funnel columns (vertical) */
+.funnel-col-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #d3c4b9 transparent;
+}
+.funnel-col-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.funnel-col-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.funnel-col-scroll::-webkit-scrollbar-thumb {
+  background: #d3c4b9;
+  border-radius: 3px;
+}
+.funnel-col-scroll::-webkit-scrollbar-thumb:hover {
+  background: #C9B9A3;
 }
 
 /* Drawer slide-in animation */
