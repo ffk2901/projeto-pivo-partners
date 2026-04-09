@@ -11,6 +11,7 @@ export async function GET() {
     ]);
     return NextResponse.json({ config, pipeline_stages: stages });
   } catch (err) {
+    console.error("[GET /api/config] Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }
@@ -47,8 +48,12 @@ export async function PUT(req: NextRequest) {
     }
 
     await setPipelineStages(unique);
-    return NextResponse.json({ pipeline_stages: unique });
+
+    // Read back from DB to confirm
+    const confirmed = await getPipelineStages();
+    return NextResponse.json({ pipeline_stages: confirmed });
   } catch (err) {
+    console.error("[PUT /api/config] Error:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Unknown error" },
       { status: 500 }

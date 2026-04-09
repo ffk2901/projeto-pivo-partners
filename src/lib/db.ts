@@ -144,34 +144,41 @@ export async function getConfig(): Promise<ConfigRow[]> {
 }
 
 export async function getPipelineStages(): Promise<string[]> {
-  const config = await getConfig();
-  const row = config.find((c) => c.key === "pipeline_stages");
-  if (!row) return [...FUNNEL_STAGES];
-  return row.value.split("|").map((s) => s.trim());
+  // Always read fresh from DB (no cache) for pipeline stages
+  const { data, error } = await getSupabase()
+    .from("config")
+    .select("*")
+    .eq("key", "pipeline_stages")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data || !data.value) return [...FUNNEL_STAGES];
+  return data.value.split("|").map((s: string) => s.trim());
 }
 
 export async function setPipelineStages(stages: string[]): Promise<void> {
   const value = stages.join("|");
-  const sb = getSupabase();
-
-  // Try update first
-  const { data: updated, error: updateError } = await sb
+  // First check if the row exists
+  const { data: existing } = await getSupabase()
     .from("config")
-    .update({ value })
+    .select("key")
     .eq("key", "pipeline_stages")
-    .select();
+    .maybeSingle();
 
-  if (updateError) throw new Error(updateError.message);
-
-  // If row didn't exist (no rows updated), insert it
-  if (!updated || updated.length === 0) {
-    const { error: insertError } = await sb
+  if (existing) {
+    // Row exists — update it
+    const { error } = await getSupabase()
+      .from("config")
+      .update({ value })
+      .eq("key", "pipeline_stages");
+    if (error) throw new Error(`Failed to update stages: ${error.message}`);
+  } else {
+    // Row doesn't exist — insert it
+    const { error } = await getSupabase()
       .from("config")
       .insert({ key: "pipeline_stages", value });
-    if (insertError) throw new Error(insertError.message);
+    if (error) throw new Error(`Failed to insert stages: ${error.message}`);
   }
-
-  invalidateCache("config");
+  invalidateCache();
 }
 
 export async function getProjectNotes(): Promise<ProjectNote[]> {
